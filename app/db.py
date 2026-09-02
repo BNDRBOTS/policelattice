@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
@@ -12,11 +13,35 @@ from app.config import get_settings
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+# Ensure directory for SQLite database exists if applicable
+if settings.database_url.startswith("sqlite:///"):
+    db_file = settings.database_url.replace("sqlite:///", "")
+    if not db_file.startswith(":memory:"):
+        db_dir = os.path.dirname(os.path.abspath(db_file))
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+
+connect_args = {}
+if settings.database_url.startswith("sqlite"):
+    connect_args = {"check_same_thread": False, "timeout": 30}
+
 engine = create_engine(
     settings.database_url,
+    connect_args=connect_args,
     pool_pre_ping=True,
     future=True,
 )
+
+
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    if settings.database_url.startswith("sqlite"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
 
 

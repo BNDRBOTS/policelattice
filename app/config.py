@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+psycopg2://lattice:lattice@localhost:5432/police_lattice"
+    database_url: str | None = None
     app_env: str = "development"
     log_level: str = "INFO"
 
@@ -49,9 +49,17 @@ class Settings(BaseSettings):
     phoenix_new_times_rss_url: str | None = None
     az_free_news_rss_url: str | None = None
 
-    # Manual / OCR
-    manual_drop_dir: str = "./data/manual_drops"
-    pdf_ocr_output_dir: str = "./data/ocr_output"
+    # Manual / OCR (uses /data volume if available)
+    manual_drop_dir: str = (
+        "/data/manual_drops"
+        if os.path.exists("/data") and os.access("/data", os.W_OK)
+        else "./data/manual_drops"
+    )
+    pdf_ocr_output_dir: str = (
+        "/data/ocr_output"
+        if os.path.exists("/data") and os.access("/data", os.W_OK)
+        else "./data/ocr_output"
+    )
     tesseract_cmd: str = "tesseract"
 
     @field_validator("database_url", mode="before")
@@ -63,6 +71,8 @@ class Settings(BaseSettings):
         DATABASE_PUBLIC_URL, and individual PG* variables.
         Normalizes postgres:// or postgresql:// schemes to postgresql+psycopg2://
         to satisfy SQLAlchemy 2.0+ requirements.
+        If no external database is configured, defaults to SQLite on the
+        persistent /data volume (or ./data/police_lattice.db).
         """
         url = (
             v
@@ -82,7 +92,11 @@ class Settings(BaseSettings):
                 url = f"postgresql+psycopg2://{auth}{pghost}:{pgport}/{pgdb}"
 
         if not url:
-            url = "postgresql+psycopg2://lattice:lattice@localhost:5432/police_lattice"
+            if os.path.exists("/data") and os.access("/data", os.W_OK):
+                url = "sqlite:////data/police_lattice.db"
+            else:
+                os.makedirs("./data", exist_ok=True)
+                url = "sqlite:///./data/police_lattice.db"
 
         # Normalize postgres driver prefixes for SQLAlchemy
         if url.startswith("postgres://"):
