@@ -33,14 +33,30 @@ app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 
-def test_root_endpoint():
+def test_root_ui_endpoint():
     response = client.get("/")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "Police Lattice" in response.text
+    assert "Sources Catalog" in response.text
+
+
+def test_api_directory_endpoint():
+    response = client.get("/api")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "online"
     assert data["name"] == "Police Lattice API"
     assert "documentation" in data
     assert "endpoints" in data
+
+
+def test_sources_endpoint():
+    response = client.get("/sources")
+    assert response.status_code == 200
+    sources = response.json()
+    assert isinstance(sources, list)
+    assert len(sources) >= 60
 
 
 def test_health_endpoint():

@@ -5,13 +5,15 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import Depends, FastAPI, Query
+from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api.dashboard import get_dashboard_html
 from app.db import SessionLocal, init_database_with_retry
 from app.models import EntityLink, Incident, Officer, StagingRecord
 from app.pipeline.resolver import DependencyResolver
-from app.pipeline.runner import run_all_sources
+from app.pipeline.runner import load_catalog, run_all_sources
 from app.pipeline.scheduler import build_scheduler
 from app.pipeline.synthesis import SynthesisEngine
 
@@ -50,9 +52,15 @@ def get_db():
         db.close()
 
 
-@app.get("/")
-def root() -> dict[str, Any]:
-    """Root entrypoint providing service status, metadata, and endpoint directory."""
+@app.get("/", response_class=HTMLResponse)
+def root_ui() -> HTMLResponse:
+    """Serve the interactive web UI dashboard."""
+    return HTMLResponse(content=get_dashboard_html())
+
+
+@app.get("/api")
+def api_directory() -> dict[str, Any]:
+    """API metadata and endpoints directory."""
     return {
         "name": "Police Lattice API",
         "version": "0.1.0",
@@ -63,7 +71,9 @@ def root() -> dict[str, Any]:
             "openapi": "/openapi.json",
         },
         "endpoints": {
+            "dashboard_ui": "/",
             "health": "/health",
+            "sources": "/sources",
             "ingest_run": "/ingest/run (POST)",
             "synthesis_run": "/synthesis/run (POST)",
             "resolve_pending": "/resolve/pending (POST)",
@@ -73,6 +83,12 @@ def root() -> dict[str, Any]:
             "suspended_staging": "/staging/suspended",
         },
     }
+
+
+@app.get("/sources")
+def list_sources() -> list[dict[str, Any]]:
+    """List all configured data sources in the catalog."""
+    return load_catalog()
 
 
 @app.get("/health")

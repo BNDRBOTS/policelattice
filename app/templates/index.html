@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Police Lattice - Data Ingestion & Synthesis</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-primary: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --border-color: #334155;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        .header-subtitle {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--accent-success);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .grid-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .card-stat {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+        }
+
+        .card-actions {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.25rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .action-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.625rem 1.125rem;
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: 1px solid transparent;
+            font-family: var(--font-sans);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-primary);
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #475569;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 1.5rem;
+            gap: 0.5rem;
+        }
+
+        .tab-btn {
+            padding: 0.75rem 1.25rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        .panel-container {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .search-input {
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 0.5rem 0.875rem;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            outline: none;
+            width: 260px;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            max-height: 600px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.875rem;
+        }
+
+        th {
+            background-color: var(--bg-secondary);
+            color: var(--text-secondary);
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            font-family: var(--font-mono);
+        }
+
+        .badge-blue {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: #93c5fd;
+        }
+
+        .badge-amber {
+            background-color: rgba(245, 158, 11, 0.15);
+            color: #fcd34d;
+        }
+
+        .badge-green {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: #6ee7b7;
+        }
+
+        .code-cell {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: #cbd5e1;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-md);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 100;
+            font-size: 0.875rem;
+        }
+
+        .empty-state {
+            padding: 3rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-brand">
+            <div>
+                <div class="header-title">Police Lattice</div>
+                <div class="header-subtitle">Topological Accountability Data Synthesis</div>
+            </div>
+        </div>
+        <div class="header-status">
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                <span>SYSTEM ONLINE</span>
+            </div>
+            <nav class="nav-links">
+                <a href="/docs" target="_blank" class="nav-link">Swagger Docs</a>
+                <a href="/redoc" target="_blank" class="nav-link">ReDoc</a>
+                <a href="/health" target="_blank" class="nav-link">Health API</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="grid-stats">
+            <div class="card-stat">
+                <div class="stat-label">Catalog Sources</div>
+                <div class="stat-value" id="stat-sources">68</div>
+            </div>
+            <div class="card-stat">
+                <div class="stat-label">Staging Records</div>
+                <div class="stat-value" id="stat-staging">-</div>
+            </div>
+            <div class="card-stat">
+                <div class="stat-label">Incidents</div>
+                <div class="stat-value" id="stat-incidents">-</div>
+            </div>
+            <div class="card-stat">
+                <div class="stat-label">Officers</div>
+                <div class="stat-value" id="stat-officers">-</div>
+            </div>
+            <div class="card-stat">
+                <div class="stat-label">Entity Links</div>
+                <div class="stat-value" id="stat-links">-</div>
+            </div>
+            <div class="card-stat">
+                <div class="stat-label">Suspended</div>
+                <div class="stat-value" id="stat-suspended" style="color: var(--accent-warning);">-</div>
+            </div>
+        </div>
+
+        <div class="card-actions">
+            <div>
+                <strong style="display: block; margin-bottom: 0.25rem;">Pipeline Control</strong>
+                <span style="font-size: 0.8125rem; color: var(--text-secondary);">Trigger manual ingestion, cross-system synthesis, or resolve pending dependencies</span>
+            </div>
+            <div class="action-group">
+                <button class="btn btn-primary" onclick="triggerAction('/ingest/run', 'Ingestion triggered')">Run Ingestion</button>
+                <button class="btn btn-secondary" onclick="triggerAction('/synthesis/run', 'Synthesis executed')">Run Synthesis</button>
+                <button class="btn btn-secondary" onclick="triggerAction('/resolve/pending', 'Dependency resolution completed')">Resolve Pending</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tab-sources')">Sources Catalog (68)</button>
+            <button class="tab-btn" onclick="switchTab('tab-incidents')">Incidents</button>
+            <button class="tab-btn" onclick="switchTab('tab-officers')">Officers</button>
+            <button class="tab-btn" onclick="switchTab('tab-links')">Entity Links</button>
+            <button class="tab-btn" onclick="switchTab('tab-suspended')">Suspended Staging</button>
+        </div>
+
+        <!-- Sources Tab -->
+        <div id="tab-sources" class="tab-pane active">
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-title">Configured Data Sources</div>
+                    <input type="text" id="search-sources" class="search-input" placeholder="Search sources..." oninput="filterSources()">
+                </div>
+                <div class="table-responsive">
+                    <table id="table-sources">
+                        <thead>
+                            <tr>
+                                <th>Source ID</th>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Adapter</th>
+                                <th>Access Mode</th>
+                                <th>Schedule</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sources-body">
+                            <tr><td colspan="6" class="empty-state">Loading sources catalog...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Incidents Tab -->
+        <div id="tab-incidents" class="tab-pane">
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-title">Synthesized Incidents</div>
+                    <button class="btn btn-secondary" style="padding: 0.375rem 0.75rem;" onclick="loadIncidents()">Refresh</button>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Type</th>
+                                <th>Occurred At</th>
+                                <th>Location</th>
+                                <th>Agency ID</th>
+                                <th>External IDs</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incidents-body">
+                            <tr><td colspan="6" class="empty-state">No incidents synthesized yet. Run Ingestion and Synthesis.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Officers Tab -->
+        <div id="tab-officers" class="tab-pane">
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-title">Officer Directory</div>
+                    <button class="btn btn-secondary" style="padding: 0.375rem 0.75rem;" onclick="loadOfficers()">Refresh</button>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Badge Number</th>
+                                <th>Employee ID</th>
+                                <th>Name</th>
+                                <th>Agency ID</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="officers-body">
+                            <tr><td colspan="6" class="empty-state">No officers recorded yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Links Tab -->
+        <div id="tab-links" class="tab-pane">
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-title">Relational Entity Links</div>
+                    <button class="btn btn-secondary" style="padding: 0.375rem 0.75rem;" onclick="loadLinks()">Refresh</button>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Source</th>
+                                <th>Relation</th>
+                                <th>Target</th>
+                                <th>Join Key</th>
+                                <th>Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody id="links-body">
+                            <tr><td colspan="5" class="empty-state">No relational entity links created yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Suspended Tab -->
+        <div id="tab-suspended" class="tab-pane">
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-title">Suspended Staging Records</div>
+                    <button class="btn btn-secondary" style="padding: 0.375rem 0.75rem;" onclick="loadSuspended()">Refresh</button>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Source</th>
+                                <th>Entity Type</th>
+                                <th>Suspension Reason</th>
+                                <th>Record Hash</th>
+                            </tr>
+                        </thead>
+                        <tbody id="suspended-body">
+                            <tr><td colspan="5" class="empty-state">No suspended staging records.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        let allSources = [];
+
+        function showToast(message, isError = false) {
+            const t = document.getElementById('toast');
+            t.textContent = message;
+            t.style.borderColor = isError ? 'var(--accent-danger)' : 'var(--accent-success)';
+            t.style.display = 'block';
+            setTimeout(() => { t.style.display = 'none'; }, 4000);
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+
+            if (tabId === 'tab-incidents') loadIncidents();
+            if (tabId === 'tab-officers') loadOfficers();
+            if (tabId === 'tab-links') loadLinks();
+            if (tabId === 'tab-suspended') loadSuspended();
+        }
+
+        async function triggerAction(endpoint, successLabel) {
+            showToast('Processing request...');
+            try {
+                const res = await fetch(endpoint, { method: 'POST' });
+                const data = await res.json();
+                showToast(`${successLabel}: ${JSON.stringify(data)}`);
+                refreshStats();
+            } catch (err) {
+                showToast(`Action failed: ${err.message}`, true);
+            }
+        }
+
+        async function refreshStats() {
+            try {
+                const healthRes = await fetch('/health');
+                const healthData = await healthRes.json();
+                document.getElementById('stat-staging').textContent = healthData.staging_records ?? 0;
+
+                const incRes = await fetch('/incidents?limit=1');
+                const incData = await incRes.json();
+
+                const offRes = await fetch('/officers?limit=1');
+                const offData = await offRes.json();
+
+                const linkRes = await fetch('/links?limit=1');
+                const linkData = await linkRes.json();
+
+                const suspRes = await fetch('/staging/suspended?limit=100');
+                const suspData = await suspRes.json();
+                document.getElementById('stat-suspended').textContent = suspData.length ?? 0;
+            } catch (err) {
+                console.error('Stats refresh failed:', err);
+            }
+        }
+
+        async function loadSources() {
+            try {
+                const res = await fetch('/sources');
+                allSources = await res.json();
+                document.getElementById('stat-sources').textContent = allSources.length;
+                renderSources(allSources);
+            } catch (err) {
+                document.getElementById('sources-body').innerHTML = `<tr><td colspan="6" class="empty-state">Failed to load sources: ${err.message}</td></tr>`;
+            }
+        }
+
+        function renderSources(sources) {
+            const tbody = document.getElementById('sources-body');
+            if (!sources || sources.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No sources found matching filter.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = sources.map(s => `
+                <tr>
+                    <td class="code-cell"><strong>${s.id}</strong></td>
+                    <td>${s.name || ''}</td>
+                    <td><span class="badge badge-blue">${s.category || ''}</span></td>
+                    <td class="code-cell">${s.adapter || ''}</td>
+                    <td><span class="badge badge-amber">${s.access_mode || ''}</span></td>
+                    <td class="code-cell">${s.schedule || 'manual / on-demand'}</td>
+                </tr>
+            `).join('');
+        }
+
+        function filterSources() {
+            const query = document.getElementById('search-sources').value.toLowerCase();
+            const filtered = allSources.filter(s =>
+                (s.id && s.id.toLowerCase().includes(query)) ||
+                (s.name && s.name.toLowerCase().includes(query)) ||
+                (s.category && s.category.toLowerCase().includes(query)) ||
+                (s.adapter && s.adapter.toLowerCase().includes(query))
+            );
+            renderSources(filtered);
+        }
+
+        async function loadIncidents() {
+            try {
+                const res = await fetch('/incidents?limit=100');
+                const data = await res.json();
+                const tbody = document.getElementById('incidents-body');
+                document.getElementById('stat-incidents').textContent = data.length;
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No incidents synthesized yet.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.map(i => `
+                    <tr>
+                        <td class="code-cell">${i.id}</td>
+                        <td><span class="badge badge-blue">${i.incident_type || 'unknown'}</span></td>
+                        <td>${i.occurred_at ? new Date(i.occurred_at).toLocaleString() : '-'}</td>
+                        <td>${i.location || '-'}</td>
+                        <td class="code-cell">${i.agency_id || '-'}</td>
+                        <td class="code-cell">${JSON.stringify(i.external_ids || {})}</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function loadOfficers() {
+            try {
+                const res = await fetch('/officers?limit=100');
+                const data = await res.json();
+                const tbody = document.getElementById('officers-body');
+                document.getElementById('stat-officers').textContent = data.length;
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No officers recorded yet.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.map(o => `
+                    <tr>
+                        <td class="code-cell">${o.id}</td>
+                        <td class="code-cell"><strong>${o.badge_number || '-'}</strong></td>
+                        <td class="code-cell">${o.employee_id || '-'}</td>
+                        <td>${[o.first_name, o.last_name].filter(Boolean).join(' ') || '-'}</td>
+                        <td class="code-cell">${o.agency_id || '-'}</td>
+                        <td><span class="badge badge-green">${o.status || 'Active'}</span></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function loadLinks() {
+            try {
+                const res = await fetch('/links?limit=100');
+                const data = await res.json();
+                const tbody = document.getElementById('links-body');
+                document.getElementById('stat-links').textContent = data.length;
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No relational entity links created yet.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.map(l => `
+                    <tr>
+                        <td class="code-cell">${l.source_entity} #${l.source_id}</td>
+                        <td><span class="badge badge-amber">${l.relation_type}</span></td>
+                        <td class="code-cell">${l.target_entity} #${l.target_id}</td>
+                        <td class="code-cell">${l.join_key || '-'}</td>
+                        <td class="code-cell">${(l.confidence * 100).toFixed(0)}%</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function loadSuspended() {
+            try {
+                const res = await fetch('/staging/suspended?limit=100');
+                const data = await res.json();
+                const tbody = document.getElementById('suspended-body');
+                document.getElementById('stat-suspended').textContent = data.length;
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No suspended records. All dependencies satisfied.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.map(s => `
+                    <tr>
+                        <td class="code-cell">${s.id}</td>
+                        <td class="code-cell">${s.source_id}</td>
+                        <td><span class="badge badge-blue">${s.entity_type}</span></td>
+                        <td style="color: var(--accent-warning);">${s.suspension_reason || '-'}</td>
+                        <td class="code-cell">${s.record_hash.substring(0, 16)}...</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Initialize dashboard
+        loadSources();
+        refreshStats();
+    </script>
+</body>
+</html>
