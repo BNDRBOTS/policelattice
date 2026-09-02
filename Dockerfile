@@ -22,9 +22,7 @@ RUN poetry config virtualenvs.create false && poetry install --no-interaction --
 COPY . .
 
 # Create an entrypoint script to run database init and start the server
-RUN echo '#!/bin/sh\n\
-python scripts/init_db.py\n\
-exec uvicorn app.api.main:app --host 0.0.0.0 --port $PORT\n' > /start.sh && chmod +x /start.sh
+RUN printf '#!/bin/sh\npython -m app.api.scripts.init_db\nexec uvicorn app.api.main:app --host 0.0.0.0 --port "${PORT:-8000}"\n' > /start.sh && chmod +x /start.sh
 
 EXPOSE 8000
 
