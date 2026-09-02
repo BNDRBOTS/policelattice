@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
 from app.config import get_settings
 
@@ -59,7 +59,7 @@ class BaseAdapter:
 class AdapterRegistry:
     """Maps adapter names to classes."""
 
-    _adapters: dict[str, type[BaseAdapter]] = {}
+    _adapters: ClassVar[dict[str, type[BaseAdapter]]] = {}
 
     @classmethod
     def register(cls, name: str):

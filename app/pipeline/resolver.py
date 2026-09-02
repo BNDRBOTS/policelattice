@@ -32,7 +32,9 @@ class DependencyResolver:
         ).all()
         resolved_count = 0
         for dep in pending:
-            if self._dependency_exists(dep.required_entity_type, dep.required_key, dep.required_value):
+            if self._dependency_exists(
+                dep.required_entity_type, dep.required_key, dep.required_value
+            ):
                 dep.status = "resolved"
                 staging = self.session.get(StagingRecord, dep.staging_record_id)
                 if staging and staging.status == "suspended":
@@ -59,15 +61,19 @@ class DependencyResolver:
         if entity_type == "incident":
             # Check external_ids JSONB for the matching key/value
             stmt = select(Incident).where(Incident.external_ids.contains({key: value}))
-            return self.session.scalar(stmt) is not None
-        if entity_type == "arrest":
-            if key == "booking_number":
-                return self.session.scalar(
-                    select(Arrest).where(Arrest.booking_number == value)
-                ) is not None
-        if entity_type == "court_case":
-            if key == "case_number":
-                return self.session.scalar(
-                    select(CourtCase).where(CourtCase.case_number == value)
-                ) is not None
+            if self.session.scalar(stmt) is not None:
+                return True
+            if self.session.bind and self.session.bind.dialect.name != "postgresql":
+                for inc in self.session.scalars(select(Incident)).all():
+                    if inc.external_ids and inc.external_ids.get(key) == value:
+                        return True
+            return False
+        if entity_type == "arrest" and key == "booking_number":
+            return self.session.scalar(
+                select(Arrest).where(Arrest.booking_number == value)
+            ) is not None
+        if entity_type == "court_case" and key == "case_number":
+            return self.session.scalar(
+                select(CourtCase).where(CourtCase.case_number == value)
+            ) is not None
         return False

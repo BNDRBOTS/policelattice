@@ -20,7 +20,10 @@ class PdfOcrAdapter(BaseAdapter):
 
     def fetch(self) -> list[RawRecordDTO]:
         config = self.source_config
-        drop_dir = getattr(self.settings, "manual_drop_dir", None) or config.get("drop_dir", "./data/manual_drops")
+        drop_dir = (
+            getattr(self.settings, "manual_drop_dir", None)
+            or config.get("drop_dir", "./data/manual_drops")
+        )
         pattern = config.get("filename_pattern", "*.pdf")
         path = Path(drop_dir)
         if not path.exists():

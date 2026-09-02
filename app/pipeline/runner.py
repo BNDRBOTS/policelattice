@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import yaml
@@ -10,9 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.ingestion.base import AdapterRegistry, BaseAdapter
 from app.ingestion.arcgis import ArcGISAdapter
 from app.ingestion.audio import AudioAdapter
+from app.ingestion.base import AdapterRegistry, BaseAdapter
 from app.ingestion.courtlistener import CourtListenerAdapter
 from app.ingestion.flatfile import FlatFileAdapter
 from app.ingestion.generic_rest import GenericRestAdapter
@@ -25,13 +25,12 @@ from app.ingestion.socrata import SocrataAdapter
 from app.ingestion.web_scraper import WebScraperAdapter
 from app.models import DataSource, RawRecord, StagingRecord
 
-
 logger = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
     """Return current UTC time with timezone awareness."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # Register adapters
@@ -65,10 +64,7 @@ def _cron_field_matches(field: str, value: int, min_val: int, max_val: int) -> b
         if "/" in part:
             base, step_str = part.split("/", 1)
             step = int(step_str)
-            if base == "*":
-                base_val = min_val
-            else:
-                base_val = int(base)
+            base_val = min_val if base == "*" else int(base)
             if (value - base_val) % step == 0 and value >= base_val:
                 return True
             continue
@@ -77,9 +73,8 @@ def _cron_field_matches(field: str, value: int, min_val: int, max_val: int) -> b
             if int(lo) <= value <= int(hi):
                 return True
             continue
-        if part.isdigit():
-            if int(part) == value:
-                return True
+        if part.isdigit() and int(part) == value:
+            return True
     return False
 
 
@@ -105,8 +100,8 @@ def _is_source_due(schedule_expr: str | None, last_run_at: datetime | None, now:
     minute_f, hour_f, dom_f, month_f, dow_f = parts
 
     # Python weekday: Monday=0..Sunday=6
-    # Cron weekday: Sunday=0..Saturday=6 (also 7=Sunday in some implementations)
-    cron_dow = (now.weekday() + 1) % 7  # Convert: Monday=1..Sunday=0
+    # Cron weekday: Sunday=0..Saturday=6
+    cron_dow = (now.weekday() + 1) % 7
 
     if not _cron_field_matches(minute_f, now.minute, 0, 59):
         return False
@@ -119,9 +114,7 @@ def _is_source_due(schedule_expr: str | None, last_run_at: datetime | None, now:
     if not _cron_field_matches(dow_f, cron_dow, 0, 6):
         return False
 
-    # Cron expression matches current minute. Now check we haven't already
-    # run within this window. If last_run_at is within the last 14 minutes,
-    # skip (scheduler fires every 15 minutes).
+    # Cron expression matches current minute. Check if already run recently.
     if last_run_at is not None:
         elapsed = (now - last_run_at).total_seconds()
         if elapsed < 600:  # Less than 10 minutes since last run
@@ -136,7 +129,7 @@ def _is_source_due(schedule_expr: str | None, last_run_at: datetime | None, now:
 
 def load_catalog(path: str = "app/source_catalog.yaml") -> list[dict[str, Any]]:
     """Load the source catalog from YAML."""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
     return data["sources"]
 
@@ -208,11 +201,17 @@ def run_source(session: Session, source_def: dict[str, Any]) -> int:
             skipped += 1
             continue
 
+        raw_payload = (
+            raw_dto.payload
+            if isinstance(raw_dto.payload, dict)
+            else {"items": raw_dto.payload}
+        )
+
         raw = RawRecord(
             source_id=source_id,
             batch_id=batch_id,
             content_type=raw_dto.content_type,
-            raw_data=raw_dto.payload if isinstance(raw_dto.payload, dict) else {"items": raw_dto.payload},
+            raw_data=raw_payload,
             file_path=raw_dto.file_path,
             checksum=checksum,
             ingested_at=_utcnow(),
@@ -224,7 +223,7 @@ def run_source(session: Session, source_def: dict[str, Any]) -> int:
             raw_record_id=raw.id,
             source_id=source_id,
             entity_type=source_def.get("entity_type", "unknown"),
-            payload=raw_dto.payload if isinstance(raw_dto.payload, dict) else {"items": raw_dto.payload},
+            payload=raw_payload,
             record_hash=checksum,
             status="pending",
         )
@@ -263,10 +262,8 @@ def run_all_due() -> dict[str, Any]:
 
             schedule_expr = source_def.get("schedule")
             if not schedule_expr:
-                # Manual/on-demand source: skip in scheduled runs
                 continue
 
-            # Check if the source's cron schedule is due right now
             source = get_source_by_id(session, source_def["id"])
             if not _is_source_due(schedule_expr, source.last_run_at, now):
                 continue

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+
 import requests
 from bs4 import BeautifulSoup
 from tenacity import retry, stop_after_attempt, wait_exponential

@@ -33,7 +33,11 @@ class MuckRockAdapter(BaseAdapter):
         headers = {"Authorization": f"Token {token}"}
         # Fetch requests for the configured user or all requests if no user.
         url = f"{self.API_BASE}/foia/"
-        params = {"user": self.settings.muckrock_username} if self.settings.muckrock_username else {}
+        params = (
+            {"user": self.settings.muckrock_username}
+            if self.settings.muckrock_username
+            else {}
+        )
         data = self._get(url, headers, params)
         results = data.get("results", [])
         return [

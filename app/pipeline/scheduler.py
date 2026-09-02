@@ -7,7 +7,6 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.pipeline.runner import run_all_due
 
-
 logger = logging.getLogger(__name__)
 
 

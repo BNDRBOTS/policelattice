@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import requests
@@ -32,7 +31,11 @@ class SocrataAdapter(BaseAdapter):
         if not domain:
             # Try direct dataset_id_env / dataset_id
             dataset_id_env = config.get("dataset_id_env")
-            dataset_id = getattr(self.settings, dataset_id_env.lower(), None) if dataset_id_env else config.get("dataset_id")
+            dataset_id = (
+                getattr(self.settings, dataset_id_env.lower(), None)
+                if dataset_id_env
+                else config.get("dataset_id")
+            )
             if not dataset_id:
                 self.log_skip("No Socrata domain or dataset_id configured")
                 return []
@@ -45,10 +48,13 @@ class SocrataAdapter(BaseAdapter):
             if not dataset_ids:
                 self.log_skip("No dataset_ids configured")
                 return []
-            # Build URLs later
             records: list[RawRecordDTO] = []
             for ds_ref in dataset_ids:
-                ds_id = getattr(self.settings, ds_ref.lower(), None) if ds_ref.startswith("PHX_") else ds_ref
+                ds_id = (
+                    getattr(self.settings, ds_ref.lower(), None)
+                    if ds_ref.startswith("PHX_")
+                    else ds_ref
+                )
                 if not ds_id:
                     continue
                 url = f"{domain.rstrip('/')}/resource/{ds_id}.json"

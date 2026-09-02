@@ -1,44 +1,22 @@
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from contextlib import contextmanager
-import time
+from __future__ import annotations
+
 import logging
+import time
+from contextlib import contextmanager
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-
-def create_engine_with_retry(url: str, max_retries: int = 10, retry_delay: int = 3):
-    """Create SQLAlchemy engine with connection retry logic.
-    
-    This handles the race condition where the app starts before the database
-    is fully ready (common in Docker/Railway deployments).
-    """
-    for attempt in range(max_retries):
-        try:
-            engine = create_engine(
-                url,
-                pool_pre_ping=True,
-                future=True,
-            )
-            # Test the connection
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            logger.info(f"Database connection established: {url.split('@')[-1]}")
-            return engine
-        except Exception as e:
-            if attempt < max_retries - 1:
-                logger.warning(f"Database connection attempt {attempt + 1}/{max_retries} failed: {e}")
-                logger.info(f"Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-            else:
-                logger.error(f"Failed to connect to database after {max_retries} attempts")
-                raise
-
-
-engine = create_engine_with_retry(settings.database_url)
+engine = create_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    future=True,
+)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
 
 
@@ -46,10 +24,41 @@ class Base(DeclarativeBase):
     """Declarative base for all ORM models."""
 
 
+def init_database_with_retry(max_retries: int = 10, retry_delay: int = 3) -> bool:
+    """Attempt to connect to the database and initialize all tables.
+
+    Retries up to `max_retries` times to handle cold starts and container
+    orchestration delays in environments like Railway and Docker Compose.
+    """
+    raw_url = settings.database_url
+    db_target = raw_url.split("@")[-1] if "@" in raw_url else raw_url
+    for attempt in range(1, max_retries + 1):
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database connection established and schema initialized (%s)", db_target)
+            return True
+        except Exception as exc:
+            if attempt < max_retries:
+                logger.warning(
+                    "Database connection attempt %d/%d to %s failed: %s. Retrying in %ds...",
+                    attempt, max_retries, db_target, exc, retry_delay,
+                )
+                time.sleep(retry_delay)
+            else:
+                logger.error(
+                    "Failed to connect to database at %s after %d attempts: %s",
+                    db_target, max_retries, exc,
+                )
+                raise
+    return False
+
+
 @contextmanager
 def get_session():
     """Context manager for database sessions."""
-    session = SessionLocal()
+    session: Session = SessionLocal()
     try:
         yield session
         session.commit()

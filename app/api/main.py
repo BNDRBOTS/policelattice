@@ -5,35 +5,41 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import Depends, FastAPI, Query
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
-from app.db import Base, engine, SessionLocal
+from app.db import SessionLocal, init_database_with_retry
 from app.models import EntityLink, Incident, Officer, StagingRecord
 from app.pipeline.resolver import DependencyResolver
 from app.pipeline.runner import run_all_sources
 from app.pipeline.scheduler import build_scheduler
 from app.pipeline.synthesis import SynthesisEngine
 
-
-settings = get_settings()
-logging.basicConfig(level=settings.log_level.upper())
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    # Initialize database connection and schema
+    init_database_with_retry()
     scheduler = build_scheduler()
     scheduler.start()
-    logger.info("Scheduler started")
+    logger.info("Scheduler started successfully")
     yield
     scheduler.shutdown()
     logger.info("Scheduler stopped")
 
 
-app = FastAPI(title="Police Lattice", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="Police Lattice API",
+    description="Topological ingestion and synthesis lattice for police accountability data",
+    version="0.1.0",
+    lifespan=lifespan,
+)
 
 
 def get_db():
@@ -44,10 +50,35 @@ def get_db():
         db.close()
 
 
+@app.get("/")
+def root() -> dict[str, Any]:
+    """Root entrypoint providing service status, metadata, and endpoint directory."""
+    return {
+        "name": "Police Lattice API",
+        "version": "0.1.0",
+        "status": "online",
+        "documentation": {
+            "swagger": "/docs",
+            "redoc": "/redoc",
+            "openapi": "/openapi.json",
+        },
+        "endpoints": {
+            "health": "/health",
+            "ingest_run": "/ingest/run (POST)",
+            "synthesis_run": "/synthesis/run (POST)",
+            "resolve_pending": "/resolve/pending (POST)",
+            "incidents": "/incidents",
+            "officers": "/officers",
+            "links": "/links",
+            "suspended_staging": "/staging/suspended",
+        },
+    }
+
+
 @app.get("/health")
 def health(db: Session = Depends(get_db)) -> dict[str, Any]:
     count = db.scalar(select(func.count()).select_from(StagingRecord))
-    return {"status": "ok", "staging_records": count}
+    return {"status": "ok", "staging_records": count or 0}
 
 
 @app.post("/ingest/run")
@@ -76,7 +107,8 @@ def list_incidents(
     db: Session = Depends(get_db),
 ):
     rows = db.execute(
-        select(Incident).order_by(Incident.occurred_at.desc()).limit(limit).offset(offset))
+        select(Incident).order_by(Incident.occurred_at.desc()).limit(limit).offset(offset)
+    )
     return rows.scalars().all()
 
 

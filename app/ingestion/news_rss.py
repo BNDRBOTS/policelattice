@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+
 import feedparser
 
 from app.ingestion.base import BaseAdapter, RawRecordDTO

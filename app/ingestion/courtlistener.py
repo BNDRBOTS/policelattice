@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import requests
@@ -34,7 +33,11 @@ class CourtListenerAdapter(BaseAdapter):
 
         headers = {"Authorization": f"Token {token}"}
         docket_env = self.source_config.get("docket_number_env")
-        docket_number = getattr(self.settings, docket_env.lower(), None) if docket_env else self.source_config.get("docket_number")
+        docket_number = (
+            getattr(self.settings, docket_env.lower(), None)
+            if docket_env
+            else self.source_config.get("docket_number")
+        )
         if not docket_number:
             self.log_skip("No docket number configured")
             return []

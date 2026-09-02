@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 from app.ingestion.base import BaseAdapter, RawRecordDTO
 
 
@@ -17,7 +18,10 @@ class AudioAdapter(BaseAdapter):
 
     def fetch(self) -> list[RawRecordDTO]:
         config = self.source_config
-        drop_dir = getattr(self.settings, "manual_drop_dir", None) or config.get("drop_dir", "./data/manual_drops")
+        drop_dir = (
+            getattr(self.settings, "manual_drop_dir", None)
+            or config.get("drop_dir", "./data/manual_drops")
+        )
         path = Path(drop_dir)
         if not path.exists():
             self.log_skip(f"Manual drop directory missing: {drop_dir}")

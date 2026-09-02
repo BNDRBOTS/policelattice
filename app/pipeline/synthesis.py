@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -27,7 +27,7 @@ from app.pipeline.state import mark_failed, mark_ready, suspend_staging
 
 def _utcnow() -> datetime:
     """Return current UTC time with timezone awareness."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _safe_parse_datetime(value: Any) -> datetime | None:
@@ -40,12 +40,12 @@ def _safe_parse_datetime(value: Any) -> datetime | None:
         return None
     if isinstance(value, datetime):
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
+            return value.replace(tzinfo=UTC)
         return value
     try:
         parsed = datetime.fromisoformat(str(value))
         if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=timezone.utc)
+            return parsed.replace(tzinfo=UTC)
         return parsed
     except (ValueError, TypeError):
         return None
@@ -80,9 +80,14 @@ class SynthesisEngine:
         if key == "employee_id":
             return self.session.scalar(select(Officer).where(Officer.employee_id == str(value)))
         if key == "external_ids":
-            # Search JSONB for any matching value
             stmt = select(Officer).where(Officer.external_ids.contains({key: value}))
-            return self.session.scalar(stmt)
+            officer = self.session.scalar(stmt)
+            if officer:
+                return officer
+            if self.session.bind and self.session.bind.dialect.name != "postgresql":
+                for off in self.session.scalars(select(Officer)).all():
+                    if off.external_ids and off.external_ids.get(key) == value:
+                        return off
         return None
 
     def _link_entity(
@@ -111,7 +116,9 @@ class SynthesisEngine:
 
     def process_incident(self, staging: StagingRecord) -> None:
         payload = staging.payload.get("attributes", staging.payload.get("row", {}))
-        incident_number = payload.get("incident_number") or payload.get("case_number") or payload.get("id")
+        incident_number = (
+            payload.get("incident_number") or payload.get("case_number") or payload.get("id")
+        )
         if not incident_number:
             suspend_staging(
                 self.session,
@@ -135,12 +142,22 @@ class SynthesisEngine:
             incident_type=staging.entity_type or payload.get("incident_type", "unknown"),
             occurred_at=occurred_at,
             location=payload.get("location"),
-            external_ids={"source_id": staging.source_id, "incident_number": str(incident_number)},
+            external_ids={
+                "source_id": staging.source_id,
+                "incident_number": str(incident_number),
+            },
             data=payload,
         )
         self.session.add(incident)
         self.session.flush()
-        self._link_entity("staging", staging.id, "incident", incident.id, "derived_from", join_key=str(incident_number))
+        self._link_entity(
+            "staging",
+            staging.id,
+            "incident",
+            incident.id,
+            "derived_from",
+            join_key=str(incident_number),
+        )
         mark_ready(self.session, staging.id)
 
     def process_arrest(self, staging: StagingRecord) -> None:
@@ -162,7 +179,6 @@ class SynthesisEngine:
         person_name = payload.get("person_name") or payload.get("name")
         person = None
         if person_name:
-            # Only create person if explicit name present
             person = Person(first_name=str(person_name), last_name="")
             self.session.add(person)
             self.session.flush()
@@ -175,16 +191,24 @@ class SynthesisEngine:
         )
         self.session.add(arrest)
         self.session.flush()
-        self._link_entity("staging", staging.id, "arrest", arrest.id, "derived_from", join_key=str(booking_number))
+        self._link_entity(
+            "staging",
+            staging.id,
+            "arrest",
+            arrest.id,
+            "derived_from",
+            join_key=str(booking_number),
+        )
         mark_ready(self.session, staging.id)
 
     def process_use_of_force(self, staging: StagingRecord) -> None:
         payload = staging.payload.get("attributes", staging.payload.get("row", {}))
-        incident_number = payload.get("incident_number") or payload.get("case_number") or payload.get("id")
+        incident_number = (
+            payload.get("incident_number") or payload.get("case_number") or payload.get("id")
+        )
         officer_badge = payload.get("officer_badge_number") or payload.get("badge_number")
         officer_employee_id = payload.get("officer_employee_id") or payload.get("employee_id")
 
-        # Explicit joining keys required for officer linkage
         if not officer_badge and not officer_employee_id:
             suspend_staging(
                 self.session,
@@ -213,7 +237,6 @@ class SynthesisEngine:
             )
             return
 
-        # Incident must exist or be created later. We suspend if no incident number.
         if not incident_number:
             suspend_staging(
                 self.session,
@@ -235,13 +258,30 @@ class SynthesisEngine:
             incident_type=staging.entity_type,
             occurred_at=occurred_at,
             location=payload.get("location"),
-            external_ids={"source_id": staging.source_id, "incident_number": str(incident_number)},
+            external_ids={
+                "source_id": staging.source_id,
+                "incident_number": str(incident_number),
+            },
             data=payload,
         )
         self.session.add(incident)
         self.session.flush()
-        self._link_entity("staging", staging.id, "incident", incident.id, "derived_from", join_key=str(incident_number))
-        self._link_entity("officer", officer.id, "incident", incident.id, "involved_in", join_key=str(officer_badge or officer_employee_id))
+        self._link_entity(
+            "staging",
+            staging.id,
+            "incident",
+            incident.id,
+            "derived_from",
+            join_key=str(incident_number),
+        )
+        self._link_entity(
+            "officer",
+            officer.id,
+            "incident",
+            incident.id,
+            "involved_in",
+            join_key=str(officer_badge or officer_employee_id),
+        )
         mark_ready(self.session, staging.id)
 
     def process_officer(self, staging: StagingRecord) -> None:
@@ -272,7 +312,14 @@ class SynthesisEngine:
         )
         self.session.add(officer)
         self.session.flush()
-        self._link_entity("staging", staging.id, "officer", officer.id, "derived_from", join_key=str(badge or employee_id))
+        self._link_entity(
+            "staging",
+            staging.id,
+            "officer",
+            officer.id,
+            "derived_from",
+            join_key=str(badge or employee_id),
+        )
         mark_ready(self.session, staging.id)
 
     def process_court_case(self, staging: StagingRecord) -> None:
@@ -298,7 +345,14 @@ class SynthesisEngine:
         )
         self.session.add(court_case)
         self.session.flush()
-        self._link_entity("staging", staging.id, "court_case", court_case.id, "derived_from", join_key=str(case_number))
+        self._link_entity(
+            "staging",
+            staging.id,
+            "court_case",
+            court_case.id,
+            "derived_from",
+            join_key=str(case_number),
+        )
         mark_ready(self.session, staging.id)
 
     def process_document(self, staging: StagingRecord) -> None:
@@ -380,6 +434,7 @@ class SynthesisEngine:
 
     def process_staging_record(self, staging: StagingRecord) -> None:
         """Route a staging record to the correct processor based on entity type."""
+        staging.synthesis_run_id = self.synthesis_run.id
         entity_type = staging.entity_type
         if entity_type in ("incident", "death"):
             self.process_incident(staging)
@@ -411,7 +466,10 @@ class SynthesisEngine:
         for staging in pending:
             try:
                 self.process_staging_record(staging)
-                stats["processed"] += 1
+                if staging.status == "suspended":
+                    stats["suspended"] += 1
+                else:
+                    stats["processed"] += 1
             except Exception as exc:
                 mark_failed(self.session, staging.id, str(exc))
                 stats["failed"] += 1

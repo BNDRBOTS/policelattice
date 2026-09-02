@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 from app.ingestion.base import BaseAdapter, RawRecordDTO
 
 
@@ -18,7 +19,10 @@ class PublicRecordsAdapter(BaseAdapter):
 
     def fetch(self) -> list[RawRecordDTO]:
         config = self.source_config
-        drop_dir = getattr(self.settings, "manual_drop_dir", None) or config.get("drop_dir", "./data/manual_drops")
+        drop_dir = (
+            getattr(self.settings, "manual_drop_dir", None)
+            or config.get("drop_dir", "./data/manual_drops")
+        )
         pattern = config.get("filename_pattern", "*")
         path = Path(drop_dir)
         if not path.exists():
@@ -28,7 +32,6 @@ class PublicRecordsAdapter(BaseAdapter):
         records: list[RawRecordDTO] = []
         for file_path in path.glob(pattern):
             if file_path.suffix.lower() in (".csv", ".json", ".xlsx", ".txt", ".pdf"):
-                # Reuse flatfile / pdf via simple heuristic
                 if file_path.suffix.lower() == ".pdf":
                     from app.ingestion.pdf_ocr import PdfOcrAdapter
                     adapter = PdfOcrAdapter({**config, "filename_pattern": file_path.name})
