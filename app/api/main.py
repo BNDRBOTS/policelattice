@@ -12,7 +12,7 @@ from app.config import get_settings
 from app.db import Base, engine, SessionLocal
 from app.models import EntityLink, Incident, Officer, StagingRecord
 from app.pipeline.resolver import DependencyResolver
-from app.pipeline.runner import run_all_due
+from app.pipeline.runner import run_all_sources
 from app.pipeline.scheduler import build_scheduler
 from app.pipeline.synthesis import SynthesisEngine
 
@@ -52,8 +52,8 @@ def health(db: Session = Depends(get_db)) -> dict[str, Any]:
 
 @app.post("/ingest/run")
 def run_ingestion() -> dict[str, Any]:
-    """Run all due sources now."""
-    return run_all_due()
+    """Run all sources now (manual trigger)."""
+    return run_all_sources()
 
 
 @app.post("/synthesis/run")

@@ -30,6 +30,27 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _safe_parse_datetime(value: Any) -> datetime | None:
+    """Attempt to parse a value as a timezone-aware datetime.
+
+    Returns None if the value is None, empty, or cannot be parsed.
+    Handles ISO 8601 strings and datetime objects.
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+    try:
+        parsed = datetime.fromisoformat(str(value))
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed
+    except (ValueError, TypeError):
+        return None
+
+
 class SynthesisEngine:
     """Maps staging records into the unified lattice.
 
@@ -105,12 +126,9 @@ class SynthesisEngine:
         agency_name = payload.get("agency_name", "Unknown")
         agency = self._get_or_create_agency(agency_name)
 
-        occurred_at = payload.get("date_time") or payload.get("occurred_at")
-        if occurred_at:
-            try:
-                occurred_at = datetime.fromisoformat(str(occurred_at))
-            except ValueError:
-                occurred_at = None
+        occurred_at = _safe_parse_datetime(
+            payload.get("date_time") or payload.get("occurred_at")
+        )
 
         incident = Incident(
             agency_id=agency.id,
@@ -139,6 +157,8 @@ class SynthesisEngine:
             )
             return
 
+        arrested_at = _safe_parse_datetime(payload.get("arrested_at"))
+
         person_name = payload.get("person_name") or payload.get("name")
         person = None
         if person_name:
@@ -149,7 +169,7 @@ class SynthesisEngine:
 
         arrest = Arrest(
             booking_number=str(booking_number),
-            arrested_at=payload.get("arrested_at"),
+            arrested_at=arrested_at,
             person_id=person.id if person else None,
             external_ids={"source_id": staging.source_id, "booking_number": str(booking_number)},
         )
@@ -207,10 +227,13 @@ class SynthesisEngine:
 
         agency_name = payload.get("agency_name", "Phoenix Police Department")
         agency = self._get_or_create_agency(agency_name)
+
+        occurred_at = _safe_parse_datetime(payload.get("date_time"))
+
         incident = Incident(
             agency_id=agency.id,
             incident_type=staging.entity_type,
-            occurred_at=payload.get("date_time"),
+            occurred_at=occurred_at,
             location=payload.get("location"),
             external_ids={"source_id": staging.source_id, "incident_number": str(incident_number)},
             data=payload,
@@ -269,7 +292,7 @@ class SynthesisEngine:
         court_case = CourtCase(
             case_number=str(case_number),
             court=payload.get("court"),
-            filed_at=payload.get("date_filed"),
+            filed_at=_safe_parse_datetime(payload.get("date_filed")),
             status=payload.get("status"),
             external_ids={"source_id": staging.source_id},
         )
@@ -299,7 +322,7 @@ class SynthesisEngine:
             source_id=staging.source_id,
             title=entry.get("title", "Untitled"),
             url=entry.get("link", ""),
-            published_at=entry.get("published"),
+            published_at=_safe_parse_datetime(entry.get("published")),
             content=entry.get("summary"),
             external_ids={"source_id": staging.source_id},
         )
@@ -313,7 +336,7 @@ class SynthesisEngine:
         report = MonitorReport(
             agency_id=None,
             period=payload.get("period"),
-            report_date=payload.get("published_at"),
+            report_date=_safe_parse_datetime(payload.get("published_at")),
             compliance_data=payload,
             document_id=None,
         )
@@ -326,10 +349,13 @@ class SynthesisEngine:
         payload = staging.payload.get("row", staging.payload.get("attributes", {}))
         agency_name = payload.get("agency_name", "Unknown")
         agency = self._get_or_create_agency(agency_name)
+
+        occurred_at = _safe_parse_datetime(payload.get("date_time"))
+
         event = SurveillanceEvent(
             agency_id=agency.id,
             event_type=staging.entity_type or payload.get("event_type", "alpr"),
-            occurred_at=payload.get("date_time"),
+            occurred_at=occurred_at,
             location=payload.get("location"),
             metadata_=payload,
         )
