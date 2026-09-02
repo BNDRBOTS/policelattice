@@ -1,0 +1,723 @@
+defaults:
+  timezone: America/Phoenix
+  access_mode: manual
+  schedule: null
+
+sources:
+  # =============================
+  # OFFICIAL DATA PORTALS & APIs
+  # =============================
+  - id: tempe_pd_hub
+    name: Tempe Police Data Hub
+    category: official_data_portals
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: tempe_pd_calls
+    name: Tempe Police Calls for Service Dataset
+    category: official_data_portals
+    adapter: arcgis
+    access_mode: api
+    schedule: "0 6 * * *"
+    availability_window: daily 06:00-07:00 America/Phoenix
+    config:
+      service_url_env: TEMPE_CALLS_FOR_SERVICE_URL
+      layer: 0
+      out_fields: "*"
+    entity_type: incident
+
+  - id: tempe_pd_calls_90day
+    name: Tempe Police Calls for Service (90-Day View)
+    category: official_data_portals
+    adapter: arcgis
+    access_mode: api
+    schedule: "30 6 * * *"
+    availability_window: daily 06:30-07:30 America/Phoenix
+    config:
+      service_url_env: TEMPE_CALLS_FOR_SERVICE_URL
+      layer: 0
+      where: "1=1"
+    entity_type: incident
+
+  - id: tempe_pd_calls_data_dict
+    name: Tempe Police Calls for Service Data Dictionary
+    category: official_data_portals
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: tempe_pd_general_offense
+    name: Tempe Police General Offense Dataset
+    category: official_data_portals
+    adapter: arcgis
+    access_mode: api
+    schedule: "0 7 * * *"
+    availability_window: daily 07:00-08:00 America/Phoenix
+    config:
+      service_url_env: TEMPE_GENERAL_OFFENSE_URL
+      layer: 0
+    entity_type: incident
+
+  - id: tempe_pd_arrests
+    name: Tempe Arrests Datasets
+    category: official_data_portals
+    adapter: arcgis
+    access_mode: api
+    schedule: "0 8 * * *"
+    availability_window: daily 08:00-09:00 America/Phoenix
+    config:
+      service_url_env: TEMPE_ARRESTS_URL
+      layer: 0
+    entity_type: arrest
+
+  - id: tempe_pd_sentiment_survey
+    name: Tempe Police Sentiment Survey Data
+    category: official_data_portals
+    adapter: generic_rest
+    access_mode: api
+    schedule: "0 6 1 * *"
+    availability_window: monthly first day 06:00 America/Phoenix
+    config:
+      url_env: TEMPE_SENTIMENT_SURVEY_URL
+      pagination: none
+    entity_type: sentiment_survey
+
+  - id: tempe_pd_hate_crime
+    name: Tempe Police Hate Crime Incident Dataset
+    category: official_data_portals
+    adapter: arcgis
+    access_mode: api
+    schedule: "0 9 * * *"
+    availability_window: daily 09:00-10:00 America/Phoenix
+    config:
+      service_url_env: TEMPE_HATE_CRIME_URL
+      layer: 0
+    entity_type: incident
+
+  - id: phx_police_crime_grid
+    name: Phoenix Police Crime Grid
+    category: official_data_portals
+    adapter: arcgis
+    access_mode: api
+    schedule: "0 2 * * 0"
+    availability_window: weekly Sunday 02:00 America/Phoenix
+    config:
+      service_url_env: PHX_CRIME_GRID_URL
+      layer: 0
+    entity_type: geography
+
+  - id: phx_police_stations
+    name: Phoenix Police Station Locations
+    category: official_data_portals
+    adapter: arcgis
+    access_mode: api
+    schedule: "0 3 * * 0"
+    availability_window: weekly Sunday 03:00 America/Phoenix
+    config:
+      service_url_env: PHX_STATION_URL
+      layer: 0
+    entity_type: facility
+
+  - id: phx_police_beats
+    name: Phoenix Police Beats
+    category: official_data_portals
+    adapter: arcgis
+    access_mode: api
+    schedule: "0 4 * * 0"
+    availability_window: weekly Sunday 04:00 America/Phoenix
+    config:
+      service_url_env: PHX_BEATS_URL
+      layer: 0
+    entity_type: geography
+
+  - id: phx_police_public_records_portal
+    name: Phoenix Police Public Records Portal
+    category: official_data_portals
+    adapter: public_records
+    access_mode: portal
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: opd_phx_calls
+    name: OpenPoliceData Phoenix Calls for Service 2025
+    category: official_data_portals
+    adapter: opd
+    access_mode: api
+    schedule: "0 5 * * *"
+    availability_window: daily 05:00 America/Phoenix
+    config: {}
+    entity_type: incident
+
+  - id: az_dps
+    name: Arizona Department of Public Safety Criminal History
+    category: official_data_portals
+    adapter: public_records
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: city_of_phx_open_data_portal
+    name: City of Phoenix Open Data Portal
+    category: official_data_portals
+    adapter: socrata
+    access_mode: api
+    schedule: "0 5 * * *"
+    availability_window: daily 05:00 America/Phoenix
+    config:
+      domain_env: PHX_OPEN_DATA_PORTAL_DOMAIN
+      dataset_ids:
+        - PHX_UOF_DATASET_ID
+        - PHX_OIS_DATASET_ID
+        - PHX_PGP_DATASET_ID
+        - PHX_SOF_DATASET_ID
+    entity_type: incident
+
+  # =============================
+  # PHOENIX SPECIALIZED DASHBOARDS
+  # =============================
+  - id: phx_uof_dashboard
+    name: Phoenix Police Use of Force Dashboard
+    category: specialized_dashboards
+    adapter: socrata
+    access_mode: api
+    schedule: "0 5 * * *"
+    availability_window: daily 05:00 America/Phoenix
+    config:
+      dataset_id_env: PHX_UOF_DATASET_ID
+    entity_type: use_of_force
+
+  - id: phx_ois_dashboard
+    name: Phoenix Police Officer-Involved Shootings Dashboard
+    category: specialized_dashboards
+    adapter: socrata
+    access_mode: api
+    schedule: "0 5 * * *"
+    availability_window: daily 05:00 America/Phoenix
+    config:
+      dataset_id_env: PHX_OIS_DATASET_ID
+    entity_type: officer_involved_shooting
+
+  - id: phx_pgp_dashboard
+    name: Phoenix Police Officer Pointed Gun at Person Dashboard
+    category: specialized_dashboards
+    adapter: socrata
+    access_mode: api
+    schedule: "0 5 * * *"
+    availability_window: daily 05:00 America/Phoenix
+    config:
+      dataset_id_env: PHX_PGP_DATASET_ID
+    entity_type: use_of_force
+
+  - id: phx_sof_dashboard
+    name: Phoenix Police Officer Show of Force Dashboard
+    category: specialized_dashboards
+    adapter: socrata
+    access_mode: api
+    schedule: "0 5 * * *"
+    availability_window: daily 05:00 America/Phoenix
+    config:
+      dataset_id_env: PHX_SOF_DATASET_ID
+    entity_type: use_of_force
+
+  - id: phx_raids_online
+    name: Phoenix Police RAIDS Online
+    category: specialized_dashboards
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: city_mgr_perf_dashboard
+    name: City of Phoenix City Manager Performance Dashboard 2.0
+    category: specialized_dashboards
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  # =============================
+  # SURVEILLANCE TRANSPARENCY
+  # =============================
+  - id: tempe_flock_alpr
+    name: Tempe Flock Safety ALPR Transparency Portal
+    category: surveillance_technology
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+    entity_type: surveillance_event
+
+  - id: flock_casa_grande_example
+    name: Flock Safety Transparency Portal (Casa Grande PD example)
+    category: surveillance_technology
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  # =============================
+  # OVERSIGHT & ACCOUNTABILITY
+  # =============================
+  - id: phx_oat
+    name: Phoenix Office of Accountability and Transparency
+    category: oversight
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: phx_civilian_review_board
+    name: Phoenix Civilian Review Board
+    category: oversight
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: phx_disciplinary_review_board
+    name: Phoenix Police Disciplinary Review Board
+    category: oversight
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: phx_civil_service_board
+    name: Phoenix Police Civil Service Board
+    category: oversight
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: azpost
+    name: Arizona Peace Officer Standards and Training Board
+    category: oversight
+    adapter: web_scraper
+    access_mode: manual
+    schedule: "0 5 * * 1"
+    availability_window: weekly Monday 05:00 America/Phoenix
+    config: {}
+    entity_type: officer_certification
+
+  # =============================
+  # LEGAL, COURT, UNION, INVESTIGATIVE
+  # =============================
+  - id: aclu_lawsuit_phx_june2026
+    name: ACLU Lawsuit against Phoenix (June 2026)
+    category: legal_court
+    adapter: courtlistener
+    access_mode: api
+    schedule: "0 6 * * 1"
+    availability_window: weekly Monday 06:00 America/Phoenix
+    config:
+      docket_number_env: ACLU_PHX_DOCKET
+    entity_type: court_case
+
+  - id: courtlistener_melendres
+    name: CourtListener Melendres v. Sheridan
+    category: legal_court
+    adapter: courtlistener
+    access_mode: api
+    schedule: "0 6 * * 1"
+    availability_window: weekly Monday 06:00 America/Phoenix
+    config:
+      docket_number_env: MELENDRES_DOCKET
+    entity_type: court_case
+
+  - id: az_judicial_branch_public_access
+    name: Arizona Judicial Branch Public Access
+    category: legal_court
+    adapter: public_records
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: phx_police_union_contracts
+    name: Phoenix Police Union Contracts (PLEA & PPSLA)
+    category: legal_court
+    adapter: pdf_ocr
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+    entity_type: document
+
+  - id: mcao_police_shooting_reviews
+    name: Maricopa County Attorney Police Shooting Reviews
+    category: legal_court
+    adapter: pdf_ocr
+    access_mode: manual
+    schedule: "0 7 * * 1"
+    availability_window: weekly Monday 07:00 America/Phoenix
+    config: {}
+    entity_type: document
+
+  - id: doj_records_phx_gov
+    name: DOJ Investigation Report Incidents Website
+    category: legal_court
+    adapter: web_scraper
+    access_mode: manual
+    schedule: "0 8 * * 1"
+    availability_window: weekly Monday 08:00 America/Phoenix
+    config: {}
+    entity_type: document
+
+  - id: abc15_brady_list_database
+    name: ABC15 Searchable Brady List Database
+    category: legal_court
+    adapter: web_scraper
+    access_mode: manual
+    schedule: "0 9 * * 1"
+    availability_window: weekly Monday 09:00 America/Phoenix
+    config: {}
+    entity_type: officer
+
+  - id: abc15_brady_misconduct_files
+    name: ABC15 Brady List Misconduct Files (100+ Phoenix PD)
+    category: legal_court
+    adapter: pdf_ocr
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+    entity_type: document
+
+  - id: police_scorecard_maricopa
+    name: Police Scorecard Maricopa County
+    category: investigative
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: police_scorecard_tempe
+    name: Police Scorecard Tempe
+    category: investigative
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: police_scorecard_phx
+    name: Police Scorecard Phoenix
+    category: investigative
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: muckrock_mcso_uof
+    name: MuckRock Use of Force Data Request MCSO
+    category: investigative
+    adapter: muckrock
+    access_mode: api
+    schedule: "0 10 * * 1"
+    availability_window: weekly Monday 10:00 America/Phoenix
+    config: {}
+    entity_type: public_records_request
+
+  - id: muckrock_platform
+    name: MuckRock General Platform
+    category: investigative
+    adapter: muckrock
+    access_mode: api
+    schedule: "0 10 * * 1"
+    availability_window: weekly Monday 10:00 America/Phoenix
+    config: {}
+    entity_type: public_records_request
+
+  - id: apaac_rule15_database
+    name: Arizona Prosecuting Attorneys Advisory Council Rule 15 Database
+    category: legal_court
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+    entity_type: officer
+
+  - id: rule15_1_disclosure_database
+    name: Rule 15.1 Disclosure Database
+    category: legal_court
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+    entity_type: officer
+
+  - id: mcso_federal_monitor_reports
+    name: MCSO Federal Monitor Reports
+    category: legal_court
+    adapter: pdf_ocr
+    access_mode: manual
+    schedule: "0 11 * * 1"
+    availability_window: weekly Monday 11:00 America/Phoenix
+    config: {}
+    entity_type: monitor_report
+
+  # =============================
+  # PUBLIC RECORDS REQUEST PORTALS
+  # =============================
+  - id: phx_police_public_records_center_govqa
+    name: Phoenix Police Public Records Center GovQA
+    category: public_records
+    adapter: public_records
+    access_mode: portal
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: phx_police_public_records_services_bureau
+    name: Phoenix Police Public Records & Services Bureau
+    category: public_records
+    adapter: public_records
+    access_mode: portal
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: phx_police_commendations_complaints
+    name: Phoenix Police Commendations and Complaints Portal
+    category: public_records
+    adapter: public_records
+    access_mode: portal
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: phx_federal_enforcement_complaint
+    name: Phoenix Federal Enforcement Complaint Reporting Portal
+    category: public_records
+    adapter: public_records
+    access_mode: portal
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: tempe_professional_standards
+    name: Tempe Police Professional Standards Internal Affairs
+    category: public_records
+    adapter: public_records
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: tempe_records_section
+    name: Tempe Police Records Section
+    category: public_records
+    adapter: public_records
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: tempe_media_public_relations
+    name: Tempe Police Media/Public Relations Unit
+    category: public_records
+    adapter: public_records
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: buckeye_police_public_records_center
+    name: Buckeye Police Public Records Center
+    category: public_records
+    adapter: public_records
+    access_mode: portal
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  # =============================
+  # LIVE AUDIO FEEDS
+  # =============================
+  - id: maricopa_county_police_scanner
+    name: Maricopa County Police Scanner
+    category: live_audio
+    adapter: audio
+    access_mode: manual
+    schedule: "*/15 * * * *"
+    availability_window: continuous 15-minute intervals
+    config: {}
+    entity_type: audio_feed
+
+  - id: police_scanner_apps
+    name: Police Scanner Apps
+    category: live_audio
+    adapter: audio
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  # =============================
+  # NEWS FEEDS & INVESTIGATIVE
+  # =============================
+  - id: abc15_news
+    name: ABC15 Phoenix KNXV
+    category: news
+    adapter: news_rss
+    access_mode: rss
+    schedule: "*/30 * * * *"
+    availability_window: continuous 30-minute intervals
+    config:
+      url_env: ABC15_RSS_URL
+
+  - id: azcentral
+    name: AZCentral / The Arizona Republic
+    category: news
+    adapter: news_rss
+    access_mode: rss
+    schedule: "*/30 * * * *"
+    availability_window: continuous 30-minute intervals
+    config:
+      url_env: AZCENTRAL_RSS_URL
+
+  - id: fox10_phoenix
+    name: FOX 10 Phoenix
+    category: news
+    adapter: news_rss
+    access_mode: rss
+    schedule: "*/30 * * * *"
+    availability_window: continuous 30-minute intervals
+    config:
+      url_env: FOX10_RSS_URL
+
+  - id: ktar_news
+    name: KTAR News 92.3 FM
+    category: news
+    adapter: news_rss
+    access_mode: rss
+    schedule: "*/30 * * * *"
+    availability_window: continuous 30-minute intervals
+    config:
+      url_env: KTAR_RSS_URL
+
+  - id: tempe_news
+    name: Tempe News
+    category: news
+    adapter: news_rss
+    access_mode: rss
+    schedule: "*/30 * * * *"
+    availability_window: continuous 30-minute intervals
+    config:
+      url_env: TEMPE_NEWS_RSS_URL
+
+  - id: propublica
+    name: ProPublica
+    category: news
+    adapter: news_rss
+    access_mode: rss
+    schedule: "0 * * * *"
+    availability_window: hourly
+    config:
+      url_env: PROPUBLICA_RSS_URL
+
+  - id: cronkite_news
+    name: Cronkite News ASU
+    category: news
+    adapter: news_rss
+    access_mode: rss
+    schedule: "0 * * * *"
+    availability_window: hourly
+    config:
+      url_env: CRONKITE_RSS_URL
+
+  - id: phoenix_new_times
+    name: Phoenix New Times
+    category: news
+    adapter: news_rss
+    access_mode: rss
+    schedule: "0 * * * *"
+    availability_window: hourly
+    config:
+      url_env: PHOENIX_NEW_TIMES_RSS_URL
+
+  - id: az_free_news
+    name: AZ Free News
+    category: news
+    adapter: news_rss
+    access_mode: rss
+    schedule: "0 * * * *"
+    availability_window: hourly
+    config:
+      url_env: AZ_FREE_NEWS_RSS_URL
+
+  - id: mapping_police_violence
+    name: Mapping Police Violence
+    category: investigative
+    adapter: flatfile
+    access_mode: file_drop
+    schedule: "0 3 * * 1"
+    availability_window: weekly Monday 03:00 America/Phoenix
+    config:
+      drop_dir_env: MANUAL_DROP_DIR
+      filename_pattern: "mapping_police_violence*.csv"
+    entity_type: death
+
+  - id: washington_post_shootings_db
+    name: Washington Post Police Shootings Database
+    category: investigative
+    adapter: flatfile
+    access_mode: file_drop
+    schedule: "0 3 * * 1"
+    availability_window: weekly Monday 03:00 America/Phoenix
+    config:
+      drop_dir_env: MANUAL_DROP_DIR
+      filename_pattern: "wapo_shootings*.csv"
+    entity_type: death
+
+  # =============================
+  # OTHER
+  # =============================
+  - id: mesa_transparency_portal
+    name: City of Mesa Transparency Portal
+    category: other
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+
+  - id: mcso_inmate_search
+    name: MCSO Inmate Search
+    category: other
+    adapter: public_records
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+    entity_type: person
+
+  - id: predictive_policing_tools_phx
+    name: Predictive Policing Tools Phoenix
+    category: other
+    adapter: web_scraper
+    access_mode: manual
+    schedule: null
+    availability_window: on-demand
+    config: {}
+    entity_type: policy
