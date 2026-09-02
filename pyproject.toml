@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Topological ingestion and synthesis lattice for police accountability data"
 authors = ["Architect"]
 readme = "README.md"
-packages = [{include = "app"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
