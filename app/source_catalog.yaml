@@ -66,13 +66,13 @@ sources:
   - id: tempe_pd_arrests
     name: Tempe Arrests Datasets
     category: official_data_portals
-    adapter: arcgis
-    access_mode: api
+    adapter: flatfile
+    access_mode: file_drop
     schedule: "0 8 * * *"
     availability_window: daily 08:00-09:00 America/Phoenix
     config:
-      service_url_env: TEMPE_ARRESTS_URL
-      layer: 0
+      drop_dir_env: MANUAL_DROP_DIR
+      filename_pattern: "*arrest*.csv"
     entity_type: arrest
 
   - id: tempe_pd_sentiment_survey
@@ -185,12 +185,13 @@ sources:
   - id: phx_uof_dashboard
     name: Phoenix Police Use of Force Dashboard
     category: specialized_dashboards
-    adapter: socrata
-    access_mode: api
+    adapter: flatfile
+    access_mode: file_drop
     schedule: "0 5 * * *"
     availability_window: daily 05:00 America/Phoenix
     config:
-      dataset_id_env: PHX_UOF_DATASET_ID
+      drop_dir_env: MANUAL_DROP_DIR
+      filename_pattern: "*uof*.csv"
     entity_type: use_of_force
 
   - id: phx_ois_dashboard
@@ -382,11 +383,13 @@ sources:
   - id: abc15_brady_list_database
     name: ABC15 Searchable Brady List Database
     category: legal_court
-    adapter: web_scraper
-    access_mode: manual
+    adapter: flatfile
+    access_mode: file_drop
     schedule: "0 9 * * 1"
     availability_window: weekly Monday 09:00 America/Phoenix
-    config: {}
+    config:
+      drop_dir_env: MANUAL_DROP_DIR
+      filename_pattern: "*officer*.csv"
     entity_type: officer
 
   - id: abc15_brady_misconduct_files
@@ -482,11 +485,14 @@ sources:
   - id: phx_police_public_records_center_govqa
     name: Phoenix Police Public Records Center GovQA
     category: public_records
-    adapter: public_records
-    access_mode: portal
+    adapter: flatfile
+    access_mode: file_drop
     schedule: null
     availability_window: on-demand
-    config: {}
+    config:
+      drop_dir_env: MANUAL_DROP_DIR
+      filename_pattern: "*public_records*.json"
+    entity_type: public_records_request
 
   - id: phx_police_public_records_services_bureau
     name: Phoenix Police Public Records & Services Bureau

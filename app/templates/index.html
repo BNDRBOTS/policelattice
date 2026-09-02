@@ -3,23 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Police Lattice - Data Ingestion & Synthesis</title>
+    <title>Police Lattice - Accountability Data Synthesis</title>
     <style>
         :root {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --bg-tertiary: #334155;
+            --bg-primary: #0b0f19;
+            --bg-secondary: #131d31;
+            --bg-tertiary: #1e293b;
+            --bg-card: #162035;
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
             --text-muted: #64748b;
             --accent-primary: #3b82f6;
             --accent-hover: #2563eb;
+            --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
             --accent-success: #10b981;
             --accent-warning: #f59e0b;
             --accent-danger: #ef4444;
-            --border-color: #334155;
-            --radius-md: 8px;
-            --radius-lg: 12px;
+            --border-color: #24344d;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
             --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
@@ -42,16 +45,32 @@
         header {
             background-color: var(--bg-secondary);
             border-bottom: 1px solid var(--border-color);
-            padding: 1rem 2rem;
+            padding: 1.125rem 2rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
 
         .header-brand {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.875rem;
+        }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--accent-gradient);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.125rem;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
 
         .header-title {
@@ -69,19 +88,20 @@
             display: flex;
             align-items: center;
             gap: 1.5rem;
+            flex-wrap: wrap;
         }
 
         .status-badge {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 0.375rem 0.75rem;
+            padding: 0.375rem 0.875rem;
             border-radius: 9999px;
             font-size: 0.75rem;
             font-weight: 600;
-            background-color: rgba(16, 185, 129, 0.1);
+            background-color: rgba(16, 185, 129, 0.12);
             color: var(--accent-success);
-            border: 1px solid rgba(16, 185, 129, 0.2);
+            border: 1px solid rgba(16, 185, 129, 0.25);
         }
 
         .status-dot {
@@ -89,11 +109,12 @@
             height: 8px;
             border-radius: 50%;
             background-color: var(--accent-success);
+            box-shadow: 0 0 8px var(--accent-success);
         }
 
         .nav-links {
             display: flex;
-            gap: 1rem;
+            gap: 1.25rem;
         }
 
         .nav-link {
@@ -111,54 +132,72 @@
         main {
             flex: 1;
             padding: 2rem;
-            max-width: 1400px;
+            max-width: 1440px;
             width: 100%;
             margin: 0 auto;
         }
 
         .grid-stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
             gap: 1rem;
-            margin-bottom: 2rem;
+            margin-bottom: 1.75rem;
         }
 
         .card-stat {
-            background-color: var(--bg-secondary);
+            background-color: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             padding: 1.25rem;
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            transition: transform 0.15s ease, border-color 0.15s ease;
+        }
+
+        .card-stat:hover {
+            transform: translateY(-2px);
+            border-color: #3b82f6;
         }
 
         .stat-label {
-            font-size: 0.8125rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-weight: 600;
+            letter-spacing: 0.06em;
+            font-weight: 700;
         }
 
         .stat-value {
-            font-size: 1.75rem;
+            font-size: 1.875rem;
             font-weight: 700;
             color: var(--text-primary);
             font-family: var(--font-mono);
         }
 
         .card-actions {
-            background-color: var(--bg-secondary);
+            background-color: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
-            padding: 1.25rem;
+            padding: 1.25rem 1.5rem;
             margin-bottom: 2rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 1rem;
+        }
+
+        .action-title {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .action-desc {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            margin-top: 0.125rem;
         }
 
         .action-group {
@@ -172,8 +211,9 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 0.625rem 1.125rem;
-            border-radius: var(--radius-md);
+            gap: 0.5rem;
+            padding: 0.625rem 1.25rem;
+            border-radius: var(--radius-sm);
             font-size: 0.875rem;
             font-weight: 600;
             cursor: pointer;
@@ -182,13 +222,15 @@
             font-family: var(--font-sans);
         }
 
-        .btn-primary {
-            background-color: var(--accent-primary);
+        .btn-pipeline {
+            background: var(--accent-gradient);
             color: #ffffff;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
         }
 
-        .btn-primary:hover {
-            background-color: var(--accent-hover);
+        .btn-pipeline:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
         }
 
         .btn-secondary {
@@ -198,7 +240,7 @@
         }
 
         .btn-secondary:hover {
-            background-color: #475569;
+            background-color: #334155;
         }
 
         .tabs {
@@ -206,6 +248,7 @@
             border-bottom: 1px solid var(--border-color);
             margin-bottom: 1.5rem;
             gap: 0.5rem;
+            overflow-x: auto;
         }
 
         .tab-btn {
@@ -218,6 +261,7 @@
             cursor: pointer;
             border-bottom: 2px solid transparent;
             transition: all 0.15s ease;
+            white-space: nowrap;
         }
 
         .tab-btn:hover {
@@ -238,18 +282,20 @@
         }
 
         .panel-container {
-            background-color: var(--bg-secondary);
+            background-color: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             overflow: hidden;
         }
 
         .panel-header {
-            padding: 1rem 1.25rem;
+            padding: 1rem 1.5rem;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
         }
 
         .panel-title {
@@ -260,12 +306,13 @@
         .search-input {
             background-color: var(--bg-primary);
             border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-sm);
             padding: 0.5rem 0.875rem;
             color: var(--text-primary);
             font-size: 0.875rem;
             outline: none;
-            width: 260px;
+            width: 280px;
+            transition: border-color 0.15s ease;
         }
 
         .search-input:focus {
@@ -287,27 +334,30 @@
         th {
             background-color: var(--bg-secondary);
             color: var(--text-secondary);
-            padding: 0.75rem 1rem;
+            padding: 0.875rem 1.25rem;
             font-weight: 600;
             border-bottom: 1px solid var(--border-color);
             position: sticky;
             top: 0;
             z-index: 10;
+            font-size: 0.8125rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
 
         td {
-            padding: 0.875rem 1rem;
+            padding: 0.875rem 1.25rem;
             border-bottom: 1px solid var(--border-color);
             color: var(--text-primary);
         }
 
         tr:hover td {
-            background-color: rgba(255, 255, 255, 0.02);
+            background-color: rgba(255, 255, 255, 0.025);
         }
 
         .badge {
             display: inline-block;
-            padding: 0.25rem 0.5rem;
+            padding: 0.25rem 0.625rem;
             border-radius: 4px;
             font-size: 0.75rem;
             font-weight: 600;
@@ -329,6 +379,11 @@
             color: #6ee7b7;
         }
 
+        .badge-purple {
+            background-color: rgba(139, 92, 246, 0.15);
+            color: #c4b5fd;
+        }
+
         .code-cell {
             font-family: var(--font-mono);
             font-size: 0.8125rem;
@@ -339,26 +394,35 @@
             position: fixed;
             bottom: 2rem;
             right: 2rem;
-            background-color: var(--bg-secondary);
+            background-color: var(--bg-card);
             border: 1px solid var(--border-color);
-            padding: 1rem 1.5rem;
+            padding: 1.125rem 1.5rem;
             border-radius: var(--radius-md);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.6);
             display: none;
             z-index: 100;
             font-size: 0.875rem;
+            max-width: 460px;
         }
 
         .empty-state {
-            padding: 3rem;
+            padding: 3.5rem 2rem;
             text-align: center;
             color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            header { padding: 1rem; }
+            main { padding: 1rem; }
+            .grid-stats { grid-template-columns: repeat(2, 1fr); }
+            .search-input { width: 100%; }
         }
     </style>
 </head>
 <body>
     <header>
         <div class="header-brand">
+            <div class="brand-icon">PL</div>
             <div>
                 <div class="header-title">Police Lattice</div>
                 <div class="header-subtitle">Topological Accountability Data Synthesis</div>
@@ -370,14 +434,15 @@
                 <span>SYSTEM ONLINE</span>
             </div>
             <nav class="nav-links">
-                <a href="/docs" target="_blank" class="nav-link">Swagger Docs</a>
-                <a href="/redoc" target="_blank" class="nav-link">ReDoc</a>
-                <a href="/health" target="_blank" class="nav-link">Health API</a>
+                <a href="/docs" class="nav-link" target="_blank">API Docs</a>
+                <a href="/health" class="nav-link" target="_blank">Health</a>
+                <a href="/sources" class="nav-link" target="_blank">Sources JSON</a>
             </nav>
         </div>
     </header>
 
     <main>
+        <!-- Metrics Stats Cards -->
         <div class="grid-stats">
             <div class="card-stat">
                 <div class="stat-label">Catalog Sources</div>
@@ -385,55 +450,146 @@
             </div>
             <div class="card-stat">
                 <div class="stat-label">Staging Records</div>
-                <div class="stat-value" id="stat-staging">-</div>
+                <div class="stat-value" id="stat-staging">0</div>
             </div>
             <div class="card-stat">
                 <div class="stat-label">Incidents</div>
-                <div class="stat-value" id="stat-incidents">-</div>
+                <div class="stat-value" id="stat-incidents">0</div>
             </div>
             <div class="card-stat">
                 <div class="stat-label">Officers</div>
-                <div class="stat-value" id="stat-officers">-</div>
+                <div class="stat-value" id="stat-officers">0</div>
             </div>
             <div class="card-stat">
-                <div class="stat-label">Entity Links</div>
-                <div class="stat-value" id="stat-links">-</div>
+                <div class="stat-label">Relational Links</div>
+                <div class="stat-value" id="stat-links">0</div>
             </div>
             <div class="card-stat">
-                <div class="stat-label">Suspended</div>
-                <div class="stat-value" id="stat-suspended" style="color: var(--accent-warning);">-</div>
+                <div class="stat-label">Suspended Records</div>
+                <div class="stat-value" id="stat-suspended">0</div>
             </div>
         </div>
 
+        <!-- Pipeline Action Controls -->
         <div class="card-actions">
             <div>
-                <strong style="display: block; margin-bottom: 0.25rem;">Pipeline Control</strong>
-                <span style="font-size: 0.8125rem; color: var(--text-secondary);">Trigger manual ingestion, cross-system synthesis, or resolve pending dependencies</span>
+                <div class="action-title">Lattice Pipeline Controls</div>
+                <div class="action-desc">Run end-to-end ingestion, entity synthesis, and relational dependency resolution</div>
             </div>
             <div class="action-group">
-                <button class="btn btn-primary" onclick="triggerAction('/ingest/run', 'Ingestion triggered')">Run Ingestion</button>
-                <button class="btn btn-secondary" onclick="triggerAction('/synthesis/run', 'Synthesis executed')">Run Synthesis</button>
-                <button class="btn btn-secondary" onclick="triggerAction('/resolve/pending', 'Dependency resolution completed')">Resolve Pending</button>
+                <button class="btn btn-pipeline" onclick="triggerFullPipeline()">
+                    ⚡ Run Full Pipeline (End-to-End)
+                </button>
+                <button class="btn btn-secondary" onclick="triggerAction('/ingest/run', 'Ingestion completed')">
+                    Ingest All Sources
+                </button>
+                <button class="btn btn-secondary" onclick="triggerAction('/synthesis/run', 'Synthesis completed')">
+                    Synthesize Staging
+                </button>
+                <button class="btn btn-secondary" onclick="triggerAction('/resolve/pending', 'Dependencies resolved')">
+                    Resolve Dependencies
+                </button>
+                <button class="btn btn-secondary" onclick="refreshStats(); reloadActiveTab();">
+                    ↻ Refresh
+                </button>
             </div>
         </div>
 
+        <!-- Navigation Tabs -->
         <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('tab-sources')">Sources Catalog (68)</button>
-            <button class="tab-btn" onclick="switchTab('tab-incidents')">Incidents</button>
+            <button class="tab-btn active" onclick="switchTab('tab-incidents')">Incidents</button>
             <button class="tab-btn" onclick="switchTab('tab-officers')">Officers</button>
             <button class="tab-btn" onclick="switchTab('tab-links')">Entity Links</button>
+            <button class="tab-btn" onclick="switchTab('tab-sources')">Sources Catalog</button>
             <button class="tab-btn" onclick="switchTab('tab-suspended')">Suspended Staging</button>
         </div>
 
-        <!-- Sources Tab -->
-        <div id="tab-sources" class="tab-pane active">
+        <!-- Tab: Incidents -->
+        <div id="tab-incidents" class="tab-pane active">
             <div class="panel-container">
                 <div class="panel-header">
-                    <div class="panel-title">Configured Data Sources</div>
-                    <input type="text" id="search-sources" class="search-input" placeholder="Search sources..." oninput="filterSources()">
+                    <div class="panel-title">Synthesized Incidents & Fatal Encounters</div>
                 </div>
                 <div class="table-responsive">
-                    <table id="table-sources">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Incident Type</th>
+                                <th>Date / Time</th>
+                                <th>Location</th>
+                                <th>Agency</th>
+                                <th>External Identifiers</th>
+                            </tr>
+                        </thead>
+                        <tbody id="incidents-body">
+                            <tr><td colspan="6" class="empty-state">Loading incidents...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Officers -->
+        <div id="tab-officers" class="tab-pane">
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-title">Law Enforcement Personnel Roster</div>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Badge #</th>
+                                <th>Employee ID</th>
+                                <th>Officer Name</th>
+                                <th>Agency</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="officers-body">
+                            <tr><td colspan="6" class="empty-state">Loading officers...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Entity Links -->
+        <div id="tab-links" class="tab-pane">
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-title">Topological Lattice Entity Links</div>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Source Entity</th>
+                                <th>Relationship</th>
+                                <th>Target Entity</th>
+                                <th>Join Key</th>
+                                <th>Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody id="links-body">
+                            <tr><td colspan="5" class="empty-state">Loading entity relationships...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Sources -->
+        <div id="tab-sources" class="tab-pane">
+            <div class="panel-container">
+                <div class="panel-header">
+                    <div class="panel-title">Active Source Catalog (68 Sources)</div>
+                    <input type="text" id="search-sources" class="search-input" placeholder="Search sources, adapters, categories..." onkeyup="filterSources()">
+                </div>
+                <div class="table-responsive">
+                    <table>
                         <thead>
                             <tr>
                                 <th>Source ID</th>
@@ -445,106 +601,25 @@
                             </tr>
                         </thead>
                         <tbody id="sources-body">
-                            <tr><td colspan="6" class="empty-state">Loading sources catalog...</td></tr>
+                            <tr><td colspan="6" class="empty-state">Loading catalog...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- Incidents Tab -->
-        <div id="tab-incidents" class="tab-pane">
-            <div class="panel-container">
-                <div class="panel-header">
-                    <div class="panel-title">Synthesized Incidents</div>
-                    <button class="btn btn-secondary" style="padding: 0.375rem 0.75rem;" onclick="loadIncidents()">Refresh</button>
-                </div>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Type</th>
-                                <th>Occurred At</th>
-                                <th>Location</th>
-                                <th>Agency ID</th>
-                                <th>External IDs</th>
-                            </tr>
-                        </thead>
-                        <tbody id="incidents-body">
-                            <tr><td colspan="6" class="empty-state">No incidents synthesized yet. Run Ingestion and Synthesis.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Officers Tab -->
-        <div id="tab-officers" class="tab-pane">
-            <div class="panel-container">
-                <div class="panel-header">
-                    <div class="panel-title">Officer Directory</div>
-                    <button class="btn btn-secondary" style="padding: 0.375rem 0.75rem;" onclick="loadOfficers()">Refresh</button>
-                </div>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Badge Number</th>
-                                <th>Employee ID</th>
-                                <th>Name</th>
-                                <th>Agency ID</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="officers-body">
-                            <tr><td colspan="6" class="empty-state">No officers recorded yet.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Links Tab -->
-        <div id="tab-links" class="tab-pane">
-            <div class="panel-container">
-                <div class="panel-header">
-                    <div class="panel-title">Relational Entity Links</div>
-                    <button class="btn btn-secondary" style="padding: 0.375rem 0.75rem;" onclick="loadLinks()">Refresh</button>
-                </div>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Source</th>
-                                <th>Relation</th>
-                                <th>Target</th>
-                                <th>Join Key</th>
-                                <th>Confidence</th>
-                            </tr>
-                        </thead>
-                        <tbody id="links-body">
-                            <tr><td colspan="5" class="empty-state">No relational entity links created yet.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Suspended Tab -->
+        <!-- Tab: Suspended Staging -->
         <div id="tab-suspended" class="tab-pane">
             <div class="panel-container">
                 <div class="panel-header">
-                    <div class="panel-title">Suspended Staging Records</div>
-                    <button class="btn btn-secondary" style="padding: 0.375rem 0.75rem;" onclick="loadSuspended()">Refresh</button>
+                    <div class="panel-title">Suspended Staging Records (Awaiting External Key Resolution)</div>
                 </div>
                 <div class="table-responsive">
                     <table>
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>Source</th>
+                                <th>Source ID</th>
                                 <th>Entity Type</th>
                                 <th>Suspension Reason</th>
                                 <th>Record Hash</th>
@@ -563,25 +638,51 @@
 
     <script>
         let allSources = [];
+        let currentTab = 'tab-incidents';
 
         function showToast(message, isError = false) {
             const t = document.getElementById('toast');
             t.textContent = message;
             t.style.borderColor = isError ? 'var(--accent-danger)' : 'var(--accent-success)';
             t.style.display = 'block';
-            setTimeout(() => { t.style.display = 'none'; }, 4000);
+            setTimeout(() => { t.style.display = 'none'; }, 4500);
         }
 
         function switchTab(tabId) {
+            currentTab = tabId;
             document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
-            event.target.classList.add('active');
+            
+            // Highlight button
+            const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+            if (btn) btn.classList.add('active');
 
-            if (tabId === 'tab-incidents') loadIncidents();
-            if (tabId === 'tab-officers') loadOfficers();
-            if (tabId === 'tab-links') loadLinks();
-            if (tabId === 'tab-suspended') loadSuspended();
+            reloadActiveTab();
+        }
+
+        function reloadActiveTab() {
+            if (currentTab === 'tab-incidents') loadIncidents();
+            if (currentTab === 'tab-officers') loadOfficers();
+            if (currentTab === 'tab-links') loadLinks();
+            if (currentTab === 'tab-sources') loadSources();
+            if (currentTab === 'tab-suspended') loadSuspended();
+        }
+
+        async function triggerFullPipeline() {
+            showToast('Executing full pipeline: Ingest -> Synthesize -> Resolve -> Re-synthesize...');
+            try {
+                const res = await fetch('/pipeline/run-full', { method: 'POST' });
+                const data = await res.json();
+                const totalNew = data.ingestion ? data.ingestion.total_new_records : 0;
+                const synthesized = data.synthesis ? data.synthesis.processed : 0;
+                const resolved = data.resolved_dependencies || 0;
+                showToast(`Pipeline Complete! Ingested: ${totalNew}, Synthesized: ${synthesized}, Resolved: ${resolved}`);
+                await refreshStats();
+                reloadActiveTab();
+            } catch (err) {
+                showToast(`Pipeline failed: ${err.message}`, true);
+            }
         }
 
         async function triggerAction(endpoint, successLabel) {
@@ -590,7 +691,8 @@
                 const res = await fetch(endpoint, { method: 'POST' });
                 const data = await res.json();
                 showToast(`${successLabel}: ${JSON.stringify(data)}`);
-                refreshStats();
+                await refreshStats();
+                reloadActiveTab();
             } catch (err) {
                 showToast(`Action failed: ${err.message}`, true);
             }
@@ -602,16 +704,19 @@
                 const healthData = await healthRes.json();
                 document.getElementById('stat-staging').textContent = healthData.staging_records ?? 0;
 
-                const incRes = await fetch('/incidents?limit=1');
+                const incRes = await fetch('/incidents?limit=500');
                 const incData = await incRes.json();
+                document.getElementById('stat-incidents').textContent = incData.length ?? 0;
 
-                const offRes = await fetch('/officers?limit=1');
+                const offRes = await fetch('/officers?limit=500');
                 const offData = await offRes.json();
+                document.getElementById('stat-officers').textContent = offData.length ?? 0;
 
-                const linkRes = await fetch('/links?limit=1');
+                const linkRes = await fetch('/links?limit=1000');
                 const linkData = await linkRes.json();
+                document.getElementById('stat-links').textContent = linkData.length ?? 0;
 
-                const suspRes = await fetch('/staging/suspended?limit=100');
+                const suspRes = await fetch('/staging/suspended?limit=500');
                 const suspData = await suspRes.json();
                 document.getElementById('stat-suspended').textContent = suspData.length ?? 0;
             } catch (err) {
@@ -633,7 +738,7 @@
         function renderSources(sources) {
             const tbody = document.getElementById('sources-body');
             if (!sources || sources.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No sources found matching filter.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No sources found matching search query.</td></tr>';
                 return;
             }
             tbody.innerHTML = sources.map(s => `
@@ -661,24 +766,26 @@
 
         async function loadIncidents() {
             try {
-                const res = await fetch('/incidents?limit=100');
+                const res = await fetch('/incidents?limit=200');
                 const data = await res.json();
                 const tbody = document.getElementById('incidents-body');
-                document.getElementById('stat-incidents').textContent = data.length;
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No incidents synthesized yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No incidents synthesized yet. Click "⚡ Run Full Pipeline" to ingest and synthesize records.</td></tr>';
                     return;
                 }
-                tbody.innerHTML = data.map(i => `
+                tbody.innerHTML = data.map(i => {
+                    const ext = i.external_ids || {};
+                    const extStr = Object.entries(ext).map(([k, v]) => `${k}: ${v}`).join(', ');
+                    return `
                     <tr>
-                        <td class="code-cell">${i.id}</td>
+                        <td class="code-cell">#${i.id}</td>
                         <td><span class="badge badge-blue">${i.incident_type || 'unknown'}</span></td>
                         <td>${i.occurred_at ? new Date(i.occurred_at).toLocaleString() : '-'}</td>
                         <td>${i.location || '-'}</td>
-                        <td class="code-cell">${i.agency_id || '-'}</td>
-                        <td class="code-cell">${JSON.stringify(i.external_ids || {})}</td>
+                        <td class="code-cell">${i.agency_id ? `Agency #${i.agency_id}` : '-'}</td>
+                        <td class="code-cell">${extStr || '-'}</td>
                     </tr>
-                `).join('');
+                `}).join('');
             } catch (err) {
                 console.error(err);
             }
@@ -686,21 +793,20 @@
 
         async function loadOfficers() {
             try {
-                const res = await fetch('/officers?limit=100');
+                const res = await fetch('/officers?limit=200');
                 const data = await res.json();
                 const tbody = document.getElementById('officers-body');
-                document.getElementById('stat-officers').textContent = data.length;
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No officers recorded yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No officers recorded yet. Click "⚡ Run Full Pipeline" to ingest officer rosters.</td></tr>';
                     return;
                 }
                 tbody.innerHTML = data.map(o => `
                     <tr>
-                        <td class="code-cell">${o.id}</td>
+                        <td class="code-cell">#${o.id}</td>
                         <td class="code-cell"><strong>${o.badge_number || '-'}</strong></td>
                         <td class="code-cell">${o.employee_id || '-'}</td>
-                        <td>${[o.first_name, o.last_name].filter(Boolean).join(' ') || '-'}</td>
-                        <td class="code-cell">${o.agency_id || '-'}</td>
+                        <td><strong>${[o.first_name, o.last_name].filter(Boolean).join(' ') || '-'}</strong></td>
+                        <td class="code-cell">${o.agency_id ? `Agency #${o.agency_id}` : '-'}</td>
                         <td><span class="badge badge-green">${o.status || 'Active'}</span></td>
                     </tr>
                 `).join('');
@@ -711,23 +817,26 @@
 
         async function loadLinks() {
             try {
-                const res = await fetch('/links?limit=100');
+                const res = await fetch('/links?limit=500');
                 const data = await res.json();
                 const tbody = document.getElementById('links-body');
-                document.getElementById('stat-links').textContent = data.length;
                 if (!data || data.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No relational entity links created yet.</td></tr>';
                     return;
                 }
-                tbody.innerHTML = data.map(l => `
+                tbody.innerHTML = data.map(l => {
+                    let relBadge = 'badge-blue';
+                    if (l.relation_type === 'involved_in') relBadge = 'badge-purple';
+                    if (l.relation_type === 'derived_from') relBadge = 'badge-amber';
+                    return `
                     <tr>
-                        <td class="code-cell">${l.source_entity} #${l.source_id}</td>
-                        <td><span class="badge badge-amber">${l.relation_type}</span></td>
-                        <td class="code-cell">${l.target_entity} #${l.target_id}</td>
+                        <td class="code-cell"><strong>${l.source_entity}</strong> #${l.source_id}</td>
+                        <td><span class="badge ${relBadge}">${l.relation_type}</span></td>
+                        <td class="code-cell"><strong>${l.target_entity}</strong> #${l.target_id}</td>
                         <td class="code-cell">${l.join_key || '-'}</td>
                         <td class="code-cell">${(l.confidence * 100).toFixed(0)}%</td>
                     </tr>
-                `).join('');
+                `}).join('');
             } catch (err) {
                 console.error(err);
             }
@@ -735,21 +844,20 @@
 
         async function loadSuspended() {
             try {
-                const res = await fetch('/staging/suspended?limit=100');
+                const res = await fetch('/staging/suspended?limit=200');
                 const data = await res.json();
                 const tbody = document.getElementById('suspended-body');
-                document.getElementById('stat-suspended').textContent = data.length;
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No suspended records. All dependencies satisfied.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No suspended records. All relational dependencies satisfied.</td></tr>';
                     return;
                 }
                 tbody.innerHTML = data.map(s => `
                     <tr>
-                        <td class="code-cell">${s.id}</td>
-                        <td class="code-cell">${s.source_id}</td>
+                        <td class="code-cell">#${s.id}</td>
+                        <td class="code-cell"><strong>${s.source_id}</strong></td>
                         <td><span class="badge badge-blue">${s.entity_type}</span></td>
                         <td style="color: var(--accent-warning);">${s.suspension_reason || '-'}</td>
-                        <td class="code-cell">${s.record_hash.substring(0, 16)}...</td>
+                        <td class="code-cell">${s.record_hash ? s.record_hash.substring(0, 16) + '...' : '-'}</td>
                     </tr>
                 `).join('');
             } catch (err) {
@@ -757,7 +865,8 @@
             }
         }
 
-        // Initialize dashboard
+        // Initialize dashboard on load
+        loadIncidents();
         loadSources();
         refreshStats();
     </script>

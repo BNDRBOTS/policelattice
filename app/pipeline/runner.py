@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import yaml
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
@@ -23,7 +23,20 @@ from app.ingestion.pdf_ocr import PdfOcrAdapter
 from app.ingestion.public_records import PublicRecordsAdapter
 from app.ingestion.socrata import SocrataAdapter
 from app.ingestion.web_scraper import WebScraperAdapter
-from app.models import DataSource, RawRecord, StagingRecord
+from app.models import (
+    Agency,
+    Arrest,
+    CourtCase,
+    DataSource,
+    Document,
+    EntityLink,
+    Incident,
+    NewsArticle,
+    Officer,
+    RawRecord,
+    StagingRecord,
+    SurveillanceEvent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -302,3 +315,70 @@ def run_all_sources() -> dict[str, Any]:
                 result[source_def["id"]] = f"ERROR: {exc}"
                 logger.error("[%s] Ingestion failed: %s", source_def["id"], exc)
     return result
+
+
+def run_full_pipeline(session: Session | None = None, force: bool = True) -> dict[str, Any]:
+    """Execute the full end-to-end data pipeline:
+    1. Ingestion: Ingests records from all configured sources (or due sources).
+    2. Synthesis: Synthesizes staging records into core lattice entities.
+    3. Resolution: Resolves suspended records whose relational dependencies have arrived.
+    4. Re-synthesis: Completes synthesis for newly-resolved records.
+    5. Returns unified execution statistics and entity lattice counts.
+    """
+    from app.pipeline.resolver import DependencyResolver
+    from app.pipeline.synthesis import SynthesisEngine
+
+    # 1. Ingestion
+    ingest_results = run_all_sources() if force else run_all_due()
+    total_ingested = sum(v for v in ingest_results.values() if isinstance(v, int))
+
+    def _execute_synthesis_cycle(s: Session) -> tuple[dict[str, Any], int]:
+        engine = SynthesisEngine(s)
+        s_stats = engine.execute()
+
+        resolver = DependencyResolver(s)
+        resolved = resolver.resolve()
+
+        if resolved > 0:
+            engine2 = SynthesisEngine(s)
+            s_stats2 = engine2.execute()
+            s_stats["processed"] = s_stats.get("processed", 0) + s_stats2.get("processed", 0)
+            s_stats["suspended"] = s_stats2.get("suspended", 0)
+            s_stats["failed"] = s_stats.get("failed", 0) + s_stats2.get("failed", 0)
+
+        return s_stats, resolved
+
+    def _get_counts(s: Session) -> dict[str, int]:
+        return {
+            "incidents": s.scalar(select(func.count(Incident.id))) or 0,
+            "officers": s.scalar(select(func.count(Officer.id))) or 0,
+            "arrests": s.scalar(select(func.count(Arrest.id))) or 0,
+            "agencies": s.scalar(select(func.count(Agency.id))) or 0,
+            "links": s.scalar(select(func.count(EntityLink.id))) or 0,
+            "court_cases": s.scalar(select(func.count(CourtCase.id))) or 0,
+            "documents": s.scalar(select(func.count(Document.id))) or 0,
+            "news_articles": s.scalar(select(func.count(NewsArticle.id))) or 0,
+            "surveillance_events": s.scalar(select(func.count(SurveillanceEvent.id))) or 0,
+            "staging_records": s.scalar(select(func.count(StagingRecord.id))) or 0,
+            "raw_records": s.scalar(select(func.count(RawRecord.id))) or 0,
+        }
+
+    if session is not None:
+        synth_stats, resolved_count = _execute_synthesis_cycle(session)
+        counts = _get_counts(session)
+    else:
+        with SessionLocal() as s:
+            synth_stats, resolved_count = _execute_synthesis_cycle(s)
+            counts = _get_counts(s)
+
+    return {
+        "status": "success",
+        "ingestion": {
+            "sources_run": len(ingest_results),
+            "total_new_records": total_ingested,
+            "results": ingest_results,
+        },
+        "synthesis": synth_stats,
+        "resolved_dependencies": resolved_count,
+        "entity_counts": counts,
+    }

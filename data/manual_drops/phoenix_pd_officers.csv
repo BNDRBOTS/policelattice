@@ -1,0 +1,9 @@
+badge_number,employee_id,first_name,last_name,agency_name,rank,status,notes
+B1042,E44910,Michael,Reynolds,Phoenix Police Department,Officer,Active,Disciplinary Review 2024
+B2215,E55201,David,Kowalski,Phoenix Police Department,Detective,Active,Use of Force Review
+B3099,E66112,Robert,Strickland,Phoenix Police Department,Sergeant,Active,Internal Affairs Notice
+B4011,E77340,Christopher,Hayes,Phoenix Police Department,Officer,Active,Public Records Inquiry
+B5120,E88219,Daniel,Vogel,Phoenix Police Department,Officer,Active,Civil Service Hearing
+B6088,E99104,Jason,Miller,Phoenix Police Department,Officer,Active,Brady List Disclosure
+T102,TE1002,Brian,O'Connor,Tempe Police Department,Officer,Active,Active Patrol
+T204,TE2004,Marcus,Bell,Tempe Police Department,Sergeant,Active,Supervisory Roster

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from app.ingestion.base import BaseAdapter, RawRecordDTO
@@ -19,11 +20,15 @@ class PublicRecordsAdapter(BaseAdapter):
 
     def fetch(self) -> list[RawRecordDTO]:
         config = self.source_config
+        drop_dir_env = config.get("drop_dir_env", "MANUAL_DROP_DIR")
         drop_dir = (
-            getattr(self.settings, "manual_drop_dir", None)
+            getattr(self.settings, drop_dir_env.lower(), None)
+            or getattr(self.settings, "manual_drop_dir", None)
+            or os.getenv(drop_dir_env)
             or config.get("drop_dir", "./data/manual_drops")
         )
-        pattern = config.get("filename_pattern", "*")
+        source_id = config.get("id", "")
+        pattern = config.get("filename_pattern") or (f"*{source_id}*" if source_id else "*")
         path = Path(drop_dir)
         if not path.exists():
             self.log_skip(f"Manual drop directory missing: {drop_dir}")

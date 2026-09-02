@@ -39,6 +39,7 @@ def test_root_ui_endpoint():
     assert "text/html" in response.headers["content-type"]
     assert "Police Lattice" in response.text
     assert "Sources Catalog" in response.text
+    assert "Run Full Pipeline" in response.text
 
 
 def test_api_directory_endpoint():
@@ -112,3 +113,22 @@ def test_ingest_and_synthesis_api_routes():
     res_res = client.post("/resolve/pending")
     assert res_res.status_code == 200
     assert "resolved" in res_res.json()
+
+
+def test_pipeline_run_full_endpoint():
+    with patch(
+        "app.api.main.run_full_pipeline",
+        return_value={
+            "status": "success",
+            "ingestion": {"sources_run": 68, "total_new_records": 10},
+            "synthesis": {"processed": 10, "suspended": 0, "failed": 0},
+            "resolved_dependencies": 2,
+            "entity_counts": {"incidents": 5, "officers": 2},
+        },
+    ):
+        res = client.post("/pipeline/run-full")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "success"
+        assert data["ingestion"]["total_new_records"] == 10
+        assert data["synthesis"]["processed"] == 10

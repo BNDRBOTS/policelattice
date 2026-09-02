@@ -47,6 +47,17 @@ def mark_ready(session: Session, staging_id: int) -> StagingRecord:
     return staging
 
 
+def mark_synthesized(session: Session, staging_id: int) -> StagingRecord:
+    """Mark a staging record as successfully synthesized into the entity lattice."""
+    staging = session.get(StagingRecord, staging_id)
+    if staging:
+        staging.status = "synthesized"
+        staging.suspension_reason = None
+        session.add(staging)
+        session.commit()
+    return staging
+
+
 def mark_failed(session: Session, staging_id: int, error: str) -> StagingRecord:
     """Mark a staging record as failed with an error message."""
     staging = session.get(StagingRecord, staging_id)

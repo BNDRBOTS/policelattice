@@ -22,7 +22,7 @@ from app.models import (
     SurveillanceEvent,
     SynthesisRun,
 )
-from app.pipeline.state import mark_failed, mark_ready, suspend_staging
+from app.pipeline.state import mark_failed, mark_synthesized, suspend_staging
 
 
 def _utcnow() -> datetime:
@@ -75,18 +75,21 @@ class SynthesisEngine:
         return agency
 
     def _find_officer_by_key(self, key: str, value: Any) -> Officer | None:
+        if not value:
+            return None
+        val_str = str(value)
         if key == "badge_number":
-            return self.session.scalar(select(Officer).where(Officer.badge_number == str(value)))
+            return self.session.scalar(select(Officer).where(Officer.badge_number == val_str))
         if key == "employee_id":
-            return self.session.scalar(select(Officer).where(Officer.employee_id == str(value)))
+            return self.session.scalar(select(Officer).where(Officer.employee_id == val_str))
         if key == "external_ids":
-            stmt = select(Officer).where(Officer.external_ids.contains({key: value}))
+            stmt = select(Officer).where(Officer.external_ids.contains({key: val_str}))
             officer = self.session.scalar(stmt)
             if officer:
                 return officer
             if self.session.bind and self.session.bind.dialect.name != "postgresql":
                 for off in self.session.scalars(select(Officer)).all():
-                    if off.external_ids and off.external_ids.get(key) == value:
+                    if off.external_ids and off.external_ids.get(key) == val_str:
                         return off
         return None
 
@@ -158,7 +161,7 @@ class SynthesisEngine:
             "derived_from",
             join_key=str(incident_number),
         )
-        mark_ready(self.session, staging.id)
+        mark_synthesized(self.session, staging.id)
 
     def process_arrest(self, staging: StagingRecord) -> None:
         payload = staging.payload.get("attributes", staging.payload.get("row", {}))
@@ -199,7 +202,7 @@ class SynthesisEngine:
             "derived_from",
             join_key=str(booking_number),
         )
-        mark_ready(self.session, staging.id)
+        mark_synthesized(self.session, staging.id)
 
     def process_use_of_force(self, staging: StagingRecord) -> None:
         payload = staging.payload.get("attributes", staging.payload.get("row", {}))
@@ -282,7 +285,7 @@ class SynthesisEngine:
             "involved_in",
             join_key=str(officer_badge or officer_employee_id),
         )
-        mark_ready(self.session, staging.id)
+        mark_synthesized(self.session, staging.id)
 
     def process_officer(self, staging: StagingRecord) -> None:
         payload = staging.payload.get("row", staging.payload.get("attributes", {}))
@@ -320,7 +323,7 @@ class SynthesisEngine:
             "derived_from",
             join_key=str(badge or employee_id),
         )
-        mark_ready(self.session, staging.id)
+        mark_synthesized(self.session, staging.id)
 
     def process_court_case(self, staging: StagingRecord) -> None:
         payload = staging.payload.get("docket", staging.payload.get("row", {}))
@@ -353,7 +356,7 @@ class SynthesisEngine:
             "derived_from",
             join_key=str(case_number),
         )
-        mark_ready(self.session, staging.id)
+        mark_synthesized(self.session, staging.id)
 
     def process_document(self, staging: StagingRecord) -> None:
         payload = staging.payload
@@ -368,7 +371,7 @@ class SynthesisEngine:
         self.session.add(doc)
         self.session.flush()
         self._link_entity("staging", staging.id, "document", doc.id, "derived_from")
-        mark_ready(self.session, staging.id)
+        mark_synthesized(self.session, staging.id)
 
     def process_news(self, staging: StagingRecord) -> None:
         entry = staging.payload.get("entry", {})
@@ -383,7 +386,7 @@ class SynthesisEngine:
         self.session.add(article)
         self.session.flush()
         self._link_entity("staging", staging.id, "news_article", article.id, "derived_from")
-        mark_ready(self.session, staging.id)
+        mark_synthesized(self.session, staging.id)
 
     def process_monitor_report(self, staging: StagingRecord) -> None:
         payload = staging.payload
@@ -397,7 +400,7 @@ class SynthesisEngine:
         self.session.add(report)
         self.session.flush()
         self._link_entity("staging", staging.id, "monitor_report", report.id, "derived_from")
-        mark_ready(self.session, staging.id)
+        mark_synthesized(self.session, staging.id)
 
     def process_surveillance_event(self, staging: StagingRecord) -> None:
         payload = staging.payload.get("row", staging.payload.get("attributes", {}))
@@ -416,7 +419,7 @@ class SynthesisEngine:
         self.session.add(event)
         self.session.flush()
         self._link_entity("staging", staging.id, "surveillance_event", event.id, "derived_from")
-        mark_ready(self.session, staging.id)
+        mark_synthesized(self.session, staging.id)
 
     def process_unknown(self, staging: StagingRecord) -> None:
         """Create a generic document to preserve the raw record."""
@@ -430,7 +433,7 @@ class SynthesisEngine:
         self.session.add(doc)
         self.session.flush()
         self._link_entity("staging", staging.id, "document", doc.id, "derived_from")
-        mark_ready(self.session, staging.id)
+        mark_synthesized(self.session, staging.id)
 
     def process_staging_record(self, staging: StagingRecord) -> None:
         """Route a staging record to the correct processor based on entity type."""
@@ -458,12 +461,14 @@ class SynthesisEngine:
             self.process_unknown(staging)
 
     def execute(self) -> dict[str, Any]:
-        """Process all pending and suspended staging records."""
-        pending = self.session.scalars(
-            select(StagingRecord).where(StagingRecord.status.in_(["pending", "suspended"]))
+        """Process all pending, ready, and suspended staging records."""
+        records = self.session.scalars(
+            select(StagingRecord).where(
+                StagingRecord.status.in_(["pending", "ready", "suspended"])
+            )
         ).all()
         stats = {"processed": 0, "suspended": 0, "failed": 0}
-        for staging in pending:
+        for staging in records:
             try:
                 self.process_staging_record(staging)
                 if staging.status == "suspended":

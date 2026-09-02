@@ -40,7 +40,14 @@ class BaseAdapter:
     access_mode: str = "manual"
 
     def __init__(self, source_config: dict[str, Any] | None = None):
-        self.source_config = source_config or {}
+        self.source_def = source_config or {}
+        inner_config = (
+            self.source_def.get("config", {})
+            if isinstance(self.source_def.get("config"), dict)
+            else {}
+        )
+        # Merge top-level source metadata with nested config dict
+        self.source_config = {**self.source_def, **inner_config}
         self.settings = get_settings()
 
     def fetch(self) -> list[RawRecordDTO]:

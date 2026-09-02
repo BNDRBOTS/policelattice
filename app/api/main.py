@@ -13,7 +13,7 @@ from app.api.dashboard import get_dashboard_html
 from app.db import SessionLocal, init_database_with_retry
 from app.models import EntityLink, Incident, Officer, StagingRecord
 from app.pipeline.resolver import DependencyResolver
-from app.pipeline.runner import load_catalog, run_all_sources
+from app.pipeline.runner import load_catalog, run_all_sources, run_full_pipeline
 from app.pipeline.scheduler import build_scheduler
 from app.pipeline.synthesis import SynthesisEngine
 
@@ -28,6 +28,19 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Initialize database connection and schema
     init_database_with_retry()
+    logger.info("Database schema initialized")
+
+    # Run automated initial pipeline pass on startup
+    try:
+        startup_results = run_full_pipeline(force=True)
+        logger.info(
+            "Initial pipeline run completed: %d new records, %d entities synthesized",
+            startup_results.get("ingestion", {}).get("total_new_records", 0),
+            startup_results.get("synthesis", {}).get("processed", 0),
+        )
+    except Exception as exc:
+        logger.warning("Initial startup pipeline run encountered error: %s", exc)
+
     scheduler = build_scheduler()
     scheduler.start()
     logger.info("Scheduler started successfully")
@@ -74,6 +87,7 @@ def api_directory() -> dict[str, Any]:
             "dashboard_ui": "/",
             "health": "/health",
             "sources": "/sources",
+            "full_pipeline": "/pipeline/run-full (POST)",
             "ingest_run": "/ingest/run (POST)",
             "synthesis_run": "/synthesis/run (POST)",
             "resolve_pending": "/resolve/pending (POST)",
@@ -95,6 +109,12 @@ def list_sources() -> list[dict[str, Any]]:
 def health(db: Session = Depends(get_db)) -> dict[str, Any]:
     count = db.scalar(select(func.count()).select_from(StagingRecord))
     return {"status": "ok", "staging_records": count or 0}
+
+
+@app.post("/pipeline/run-full")
+def run_pipeline_endpoint(db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Run full automated end-to-end pipeline: Ingest -> Synthesize -> Resolve -> Re-synthesize."""
+    return run_full_pipeline(session=db, force=True)
 
 
 @app.post("/ingest/run")

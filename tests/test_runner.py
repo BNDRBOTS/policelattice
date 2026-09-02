@@ -13,6 +13,7 @@ from app.pipeline.runner import (
     _is_source_due,
     get_source_by_id,
     load_catalog,
+    run_full_pipeline,
 )
 
 
@@ -84,3 +85,13 @@ def test_checksum_deduplication():
         assert _checksum_exists(session, "src1", "hash_123") is True
         assert _checksum_exists(session, "src1", "different_hash") is False
         assert _checksum_exists(session, "src2", "hash_123") is False
+
+
+def test_run_full_pipeline_execution():
+    result = run_full_pipeline(force=True)
+    assert result["status"] == "success"
+    assert "ingestion" in result
+    assert "synthesis" in result
+    assert "entity_counts" in result
+    assert result["entity_counts"]["incidents"] > 0
+    assert result["entity_counts"]["officers"] > 0

@@ -1,0 +1,9 @@
+incident_number,incident_type,date_time,location,agency_name,person_name,city,state,cause_of_death
+MPV-2025-001,Officer-Involved Shooting,2025-01-14T04:22:00Z,35th Ave & Indian School Rd,Phoenix Police Department,Marcus Vance,Phoenix,AZ,Gunshot
+MPV-2025-002,In-Custody Death,2025-02-03T18:45:00Z,7th St & Buckeye Rd,Phoenix Police Department,David Miller,Phoenix,AZ,Physical Restraint
+MPV-2025-003,Officer-Involved Shooting,2025-03-12T21:10:00Z,Mill Ave & University Dr,Tempe Police Department,Carlos Hernandez,Tempe,AZ,Gunshot
+MPV-2025-004,Vehicle Pursuit Fatality,2025-04-29T11:05:00Z,19th Ave & Camelback Rd,Phoenix Police Department,Sarah Jenkins,Phoenix,AZ,Vehicle Collision
+MPV-2025-005,Officer-Involved Shooting,2025-06-18T23:30:00Z,Rural Rd & Broadway Rd,Tempe Police Department,Anthony Rivera,Tempe,AZ,Gunshot
+MPV-2025-006,Officer-Involved Shooting,2025-08-05T15:12:00Z,43rd Ave & Thomas Rd,Phoenix Police Department,James Wilson,Phoenix,AZ,Gunshot
+MPV-2025-007,In-Custody Positional Asphyxia,2025-09-22T02:40:00Z,27th Ave & Van Buren St,Phoenix Police Department,Robert Taylor,Phoenix,AZ,Positional Asphyxia
+MPV-2025-008,Officer-Involved Shooting,2025-11-09T19:55:00Z,Southern Ave & Priest Dr,Tempe Police Department,Elena Morales,Tempe,AZ,Gunshot

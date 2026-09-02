@@ -27,7 +27,8 @@ class FlatFileAdapter(BaseAdapter):
             self.log_skip("No drop_dir_env configured")
             return []
 
-        pattern = config.get("filename_pattern", "*")
+        source_id = config.get("id", "")
+        pattern = config.get("filename_pattern") or (f"*{source_id}*" if source_id else "*")
         path = Path(drop_dir)
         if not path.exists():
             self.log_skip(f"Drop directory does not exist: {drop_dir}")
