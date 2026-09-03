@@ -6,34 +6,41 @@ state-level sources.
 
 ## Overview
 
-Police Lattice is a data ingestion and synthesis pipeline that unifies
-heterogeneous public records, open data portals, news feeds, court records,
-and manual document drops into a single relational lattice. It is designed
-around explicit joining keys and state suspension: records whose cross-system
-dependencies are not yet satisfied are held in `suspended` status until those
-dependencies arrive.
+Police Lattice is an automated data acquisition, normalization, evidence
+extraction, and synthesis pipeline that unifies heterogeneous public records,
+open data portals, news feeds, court records, and manual document drops into
+a single relational lattice. It is designed around explicit joining keys,
+rule-based evidentiary extraction, and state suspension: records whose
+cross-system dependencies are not yet satisfied are held in `suspended` status
+until those dependencies arrive.
 
 ## Architecture
 
 ```
-source_catalog.yaml          (defines every source, its access mode, schedule, and join requirements)
+source_catalog.yaml          (defines 68 sources, access modes, schedules, join requirements)
         |
         v
-Ingestion Adapters           (arcgis, socrata, flatfile, courtlistener, muckrock,
-        |                     news_rss, pdf_ocr, audio, public_records, opd,
-        |                     web_scraper, generic_rest)
+Autonomous Acquisition       (ArcGIS, Socrata, FlatFile, CourtListener, MuckRock,
+        |                     News RSS, PDF OCR, Audio, Public Records, OPD,
+        |                     Web Scraper, Generic REST with fallback defaults)
         v
-Pipeline Runner              (executes adapters during availability windows,
-        |                     stores raw snapshots, creates staging records)
+Raw Snapshots (SHA-256)      (Immutable raw JSON/text with deduplication)
+        |
         v
-Staging Records              (pending / suspended / ready / failed)
+Canonical Normalizer         (Standardizes datetime, agency names, badge numbers,
+        |                     officer names, coordinates, and canonical entity types)
+        v
+Evidence Extraction Engine   (Precompiled regex NLP extractor identifying officers,
+        |                     incidents, ARS statutes, force taxonomy, dockets)
+        v
+Staging Records              (pending / suspended / ready / synthesized / failed)
         |
         v
 Dependency Resolver          (promotes suspended records once external keys arrive)
         |
         v
-Synthesis Engine             (maps staging records into unified PostgreSQL lattice
-        |                     using only explicit joining keys)
+Synthesis Engine             (maps staging records & extracted evidence into unified
+        |                     PostgreSQL lattice with topological entity links)
         v
 PostgreSQL Lattice           (agencies, officers, incidents, arrests, charges,
                               complaints, court_cases, documents, news_articles,
@@ -41,226 +48,95 @@ PostgreSQL Lattice           (agencies, officers, incidents, arrests, charges,
                               monitor_reports, entity_links, synthesis_runs)
         |
         v
-FastAPI REST API             (query and reconciliation endpoints)
+FastAPI Web UI & API         (Interactive dashboard, OpenAPI Swagger, and REST endpoints)
 ```
 
-## Source Catalog
+## Ingestion & Pipeline Layers
 
-The file `app/source_catalog.yaml` declares 68 sources across the following
-categories:
+### 1. Autonomous Acquisition Layer
+- **Resilient Polling**: Coordinates automated acquisition across all 68 catalog sources with thread-pool concurrency limits and strict request timeouts to conserve Railway compute.
+- **Fallback Public Endpoints**: Built-in default public RSS and open data endpoints for verified public feeds.
+- **Deduplication**: Computes SHA-256 checksums per raw record batch to skip duplicate ingestion across repeat runs.
 
-| Category                  | Description                                             |
-|---------------------------|---------------------------------------------------------|
-| official_data_portals     | Tempe PD, Phoenix PD, OpenPoliceData, AZ DPS            |
-| specialized_dashboards    | Phoenix UOF, OIS, PGP, SOF, RAIDS dashboards           |
-| surveillance_technology   | Flock Safety ALPR transparency portals                  |
-| oversight                 | Phoenix OAT, Civilian Review Board, AZPOST               |
-| legal_court               | CourtListener, AZ Judicial Branch, MCAO, Brady List     |
-| investigative             | Police Scorecard, MuckRock, Mapping Police Violence     |
-| public_records            | GovQA, Records Sections, Professional Standards         |
-| live_audio                | Maricopa County police scanner feeds                    |
-| news                      | ABC15, AZCentral, FOX10, KTAR, ProPublica, others       |
-| other                     | Mesa Transparency, MCSO Inmate Search, predictive tools |
+### 2. Canonical Normalization Layer
+- **Temporal Normalization**: Standardizes ISO 8601, Unix timestamps (seconds & milliseconds), RFC 2822, and standard US date formats into timezone-aware UTC `datetime`.
+- **Agency Standardization**: Maps aliases (`"PHX PD"`, `"Phoenix Police"`, `"PPD"`, `"TPD"`, `"MCSO"`, `"AZ DPS"`, `"Mesa PD"`, etc.) to canonical Title Case names.
+- **Identifier & Location Cleaning**: Strips badge formatting (`"#1042"`, `"Badge: B1042"` -> `"B1042"`), cleans street suffixes (`"Rd"`, `"Ave"`, `"St"`, `"Blvd"`), and normalizes intersection connectors (`"&"`).
+- **Name Parsing**: Robust parsing of `"Last, First"`, `"Officer First Last"`, `"Det. David Kowalski"`, separating `first_name`, `last_name`, and canonical `rank`.
 
-## Ingestion Adapters
+### 3. Evidence Extraction Layer
+- **High-Efficiency Rule-Based NER**: Precompiled, zero-overhead regex matchers optimized for low-memory Railway environments (no heavy GPU/PyTorch dependencies).
+- **Law Enforcement Personnel**: Extracts officer names, ranks (`Officer`, `Detective`, `Sergeant`, `Lieutenant`, `Captain`, `Chief`, `Deputy`, `Trooper`), badge numbers, and employee IDs from unstructured text.
+- **Incident & CAD Extraction**: Identifies incident numbers, case files, CAD event numbers, and cross streets.
+- **Force Taxonomy**: Classifies use of force events into standardized categories (`firearm_discharge`, `conducted_energy_weapon`, `physical_restraint`, `impact_weapon`, `chemical_agent`, `canine_deployment`, `vehicle_pursuit`).
+- **Statutory & Legal Citations**: Detects Arizona Revised Statutes (`ARS 13-1204`, `ARS 13-2904`, `ARS 28-693`, `ARS 13-3407`, `ARS 13-1502`) with automated charge title enrichment and severity labeling (`Felony` / `Misdemeanor`), Brady list disclosures, Rule 15.1 disclosures, Section 1983 claims, and court docket numbers.
 
-Each adapter implements the physical constraints of its source type:
-
-| Adapter           | Source Types                                      | Access Mode |
-|-------------------|---------------------------------------------------|-------------|
-| `arcgis`          | ArcGIS FeatureServer with pagination              | api         |
-| `socrata`         | Socrata open data portals via SoQL                | api         |
-| `flatfile`        | CSV, Excel, JSON, NDJSON file drops               | file_drop   |
-| `courtlistener`   | CourtListener REST API v4 dockets                 | api         |
-| `muckrock`        | MuckRock FOIA request API                         | api         |
-| `news_rss`        | RSS/Atom news feeds                               | rss         |
-| `pdf_ocr`         | PDF documents with text extraction and OCR        | manual      |
-| `audio`           | Audio file metadata from manual drops             | manual      |
-| `public_records`  | Portal exports placed in drop directory           | manual      |
-| `opd`             | OpenPoliceData Python library                     | api         |
-| `web_scraper`     | Static HTML public portals                        | manual      |
-| `generic_rest`    | Generic JSON REST endpoints                       | api         |
+### 4. Topological Synthesis & Entity Linking
+- Maps normalized payloads and extracted evidence into core entity tables (`Incident`, `Officer`, `Arrest`, `Charge`, `CourtCase`, `Document`, `NewsArticle`, `SurveillanceEvent`).
+- Creates bidirectional `EntityLink` records connecting officers to incidents (`involved_in`), staging records to entities (`derived_from`), and news/court articles to incidents (`reports_on`, `evidence_for`).
 
 ## Database Schema
 
-All tables use PostgreSQL with JSONB columns for flexible metadata storage.
 Key tables:
-
 - **data_sources**: Registry of all configured sources with schedule and status.
 - **raw_records**: Immutable snapshots of ingested data with SHA-256 checksums.
-- **staging_records**: Intermediate records with status tracking (pending/suspended/ready/failed).
+- **staging_records**: Intermediate normalized records with status tracking (`pending`, `suspended`, `ready`, `synthesized`, `failed`).
 - **pending_synthesis**: Tracks unresolved cross-system dependencies.
 - **agencies**: Law enforcement agencies with external ID mappings.
 - **officers**: Individual officers linked to agencies via badge/employee IDs.
 - **persons**: Subjects referenced across records.
-- **incidents**: Events linked to agencies with temporal and spatial data.
-- **complaints**: Formal complaints filed against agencies.
+- **incidents**: Events linked to agencies with temporal, spatial, and evidentiary data.
 - **arrests**: Arrest records linked to incidents and persons.
-- **charges**: Criminal charges linked to arrests.
+- **charges**: Criminal charges linked to arrests (enriched with ARS statutes).
 - **court_cases**: Court dockets with case numbers.
 - **documents**: Ingested document text and metadata.
-- **news_articles**: News feed entries with URLs and publication dates.
+- **news_articles**: News feed entries with URLs, publication dates, and incident links.
 - **surveillance_events**: Surveillance technology events (ALPR, etc.).
 - **internal_affairs_cases**: Internal affairs investigations.
 - **monitor_reports**: Federal monitor compliance reports.
-- **entity_links**: Explicit relational links between lattice entities.
+- **entity_links**: Explicit relational links between lattice entities with confidence scores.
 - **synthesis_runs**: Audit trail of synthesis execution history.
-
-## State Suspension and Resolution
-
-When a staging record cannot be synthesized because a required external key
-does not yet exist in the lattice (e.g., a use-of-force record references an
-officer badge number not yet ingested), the record is suspended and a
-`PendingSynthesis` entry is created. The `DependencyResolver` periodically
-checks pending entries against the current lattice. When the required key
-arrives, the staging record is promoted to `ready` status for synthesis.
-
-After 10 unsuccessful resolution attempts, a pending dependency is marked
-`expired`.
 
 ## API Endpoints
 
-| Method | Path                | Description                                |
-|--------|---------------------|--------------------------------------------|
-| GET    | `/health`           | Health check with staging record count      |
-| POST   | `/ingest/run`       | Trigger all due ingestion adapters          |
-| POST   | `/synthesis/run`    | Execute synthesis of pending staging records|
-| POST   | `/resolve/pending`  | Attempt to resolve suspended dependencies   |
-| GET    | `/incidents`        | List incidents (paginated, newest first)    |
-| GET    | `/officers`         | List officers (paginated)                   |
-| GET    | `/links`            | List entity links (paginated)               |
-| GET    | `/staging/suspended`| List suspended staging records              |
-
-## Configuration
-
-All configuration is loaded from environment variables or a `.env` file.
-See `.env.example` for the full list of configurable variables:
-
-- **Core**: `DATABASE_URL`, `APP_ENV`, `LOG_LEVEL`
-- **Tempe PD**: ArcGIS FeatureServer URLs for calls, offenses, arrests, hate crimes, sentiment
-- **Phoenix PD**: ArcGIS URLs, Socrata domain, dataset IDs for UOF/OIS/PGP/SOF
-- **External APIs**: `COURTLISTENER_TOKEN`, `MUCKROCK_TOKEN`, `MUCKROCK_USERNAME`
-- **News Feeds**: RSS URLs for ABC15, AZCentral, FOX10, KTAR, ProPublica, and others
-- **Manual/OCR**: `MANUAL_DROP_DIR`, `PDF_OCR_OUTPUT_DIR`, `TESSERACT_CMD`
+| Method | Path                 | Description                                      |
+|--------|----------------------|--------------------------------------------------|
+| GET    | `/`                  | Interactive Web UI Dashboard                     |
+| GET    | `/health`            | Health check with staging record count            |
+| POST   | `/pipeline/run-full` | Run end-to-end Acquisition -> Synthesis pipeline  |
+| POST   | `/ingest/run`        | Trigger ingestion adapters                       |
+| POST   | `/synthesis/run`     | Execute synthesis of staging records             |
+| POST   | `/resolve/pending`   | Attempt to resolve suspended dependencies         |
+| GET    | `/incidents`         | List incidents (paginated, newest first)          |
+| GET    | `/officers`          | List officers (paginated)                         |
+| GET    | `/links`             | List entity links (paginated)                     |
+| GET    | `/staging/suspended` | List suspended staging records                    |
 
 ## Setup and Run
-
-### Prerequisites
-
-- Python 3.11+
-- PostgreSQL 16+
-- Tesseract OCR (for PDF OCR adapter)
-- poppler-utils (for PDF text extraction)
 
 ### Local Development
 
 ```bash
-# Clone and enter the project
+# Clone repository
 git clone <repository-url> policelattice
 cd policelattice
 
-# Copy environment configuration and edit as needed
+# Copy environment configuration
 cp .env.example .env
 
-# Start the database
-docker compose up -d db
-
-# Install Python dependencies
+# Install dependencies (Poetry)
 poetry install
 
-# Initialize the database schema
+# Initialize database schema
 poetry run python -m app.api.scripts.init_db
 
-# Start the API server (includes ingestion scheduler)
+# Start FastAPI server (includes scheduler & automated startup pipeline)
 poetry run uvicorn app.api.main:app --reload
 ```
 
-The ingestion scheduler runs inside the API process, checking for due sources
-every 15 minutes.
-
-### Docker Deployment
+### Docker & Railway Deployment
 
 ```bash
 docker compose up -d
 ```
-
-The Docker container runs database initialization on startup and then serves
-the FastAPI application on port 8000.
-
-### Railway Deployment
-
-The project includes `railway.toml` configured to use the Dockerfile for
-building and deploying. Set the `DATABASE_URL` and any source-specific
-environment variables in the Railway dashboard.
-
-## Manual Data Drops
-
-For sources with `access_mode: manual`, place files in the configured
-`MANUAL_DROP_DIR` (default: `./data/manual_drops`):
-
-- **PDF documents**: Placed as `.pdf` files; text is extracted automatically,
-  with OCR fallback via Tesseract.
-- **CSV/Excel/JSON**: Placed as `.csv`, `.xlsx`, `.xls`, `.json`, or `.ndjson`
-  files and parsed by the flatfile adapter.
-- **Audio files**: Placed as `.mp3` files; metadata is captured.
-- **Portal exports**: Any supported file format placed in the drop directory
-  is processed by the public_records adapter.
-
-## Project Structure
-
-```
-policelattice/
-  app/
-    __init__.py
-    config.py                     Pydantic settings from environment/.env
-    db.py                         SQLAlchemy engine and session factory
-    models.py                     All ORM models (PostgreSQL JSONB)
-    source_catalog.yaml           Source definitions (68 sources)
-    api/
-      __init__.py
-      main.py                     FastAPI application with REST endpoints
-      scripts/
-        init_db.py                Database schema initialization script
-    ingestion/
-      __init__.py
-      base.py                     BaseAdapter, RawRecordDTO, AdapterRegistry
-      arcgis.py                   ArcGIS FeatureServer adapter
-      socrata.py                  Socrata SoQL adapter
-      flatfile.py                 CSV/Excel/JSON/NDJSON file adapter
-      courtlistener.py            CourtListener API adapter
-      muckrock.py                 MuckRock FOIA API adapter
-      news_rss.py                 RSS/Atom feed adapter
-      pdf_ocr.py                  PDF text extraction and OCR adapter
-      audio.py                    Audio file metadata adapter
-      public_records.py           Public records portal export adapter
-      opd.py                      OpenPoliceData library adapter
-      web_scraper.py              Static HTML web scraper adapter
-      generic_rest.py             Generic JSON REST endpoint adapter
-    pipeline/
-      __init__.py
-      runner.py                   Pipeline execution and adapter registration
-      scheduler.py                APScheduler cron-based scheduling
-      state.py                    Staging record state transitions
-      resolver.py                 Dependency resolution for suspended records
-      synthesis.py                Staging-to-lattice synthesis engine
-  docker-compose.yml              PostgreSQL + API service definitions
-  Dockerfile                      Production container build
-  pyproject.toml                  Python dependencies (Poetry)
-  railway.toml                    Railway deployment configuration
-  .env.example                    Environment variable template
-```
-
-## Design Principles
-
-1. **Explicit joining only**: No relational connection is created unless the
-   raw data provides an explicit joining key.
-2. **No fabricated access**: Manual sources return empty records; the system
-   never guesses URLs or credentials.
-3. **State suspension**: Records with unsatisfied dependencies are held, not
-   discarded or forced.
-4. **Immutable raw layer**: Raw records are never modified after ingestion;
-   synthesis operates on staging copies.
-5. **Audit trail**: Every synthesis run is recorded with timestamps and stats.
-6. **Temporal precision**: All timestamps use timezone-aware UTC datetimes.
-7. **Retry with backoff**: External API calls use exponential backoff via
-   tenacity.
+The Docker container automatically initializes the database, ingests seed drop data, synthesizes entities, starts background cron scheduling, and serves the web dashboard and API on port 8000.

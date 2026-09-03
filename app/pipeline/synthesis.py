@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import (
     Agency,
     Arrest,
+    Charge,
     CourtCase,
     Document,
     EntityLink,
@@ -22,6 +23,7 @@ from app.models import (
     SurveillanceEvent,
     SynthesisRun,
 )
+from app.pipeline.normalization import normalize_datetime
 from app.pipeline.state import mark_failed, mark_synthesized, suspend_staging
 
 
@@ -31,33 +33,18 @@ def _utcnow() -> datetime:
 
 
 def _safe_parse_datetime(value: Any) -> datetime | None:
-    """Attempt to parse a value as a timezone-aware datetime.
-
-    Returns None if the value is None, empty, or cannot be parsed.
-    Handles ISO 8601 strings and datetime objects.
-    """
-    if value is None:
-        return None
-    if isinstance(value, datetime):
-        if value.tzinfo is None:
-            return value.replace(tzinfo=UTC)
-        return value
-    try:
-        parsed = datetime.fromisoformat(str(value))
-        if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=UTC)
-        return parsed
-    except (ValueError, TypeError):
-        return None
+    """Safely parse a datetime using the canonical normalizer."""
+    return normalize_datetime(value)
 
 
 class SynthesisEngine:
-    """Maps staging records into the unified lattice.
+    """Maps staging records and extracted evidence into the unified lattice.
 
     Rules:
-    - Only explicit joining keys from the source payload are used.
-    - If a required key is missing, the record is suspended.
-    - No relational connection is created unless the raw data supports it.
+    - Uses canonical normalized fields and explicit joining keys.
+    - If a required relational key is missing, the record is suspended.
+    - Correlates extracted evidence (officer mentions, force tactics, ARS statutes)
+      into first-class lattice entities and topological entity links.
     """
 
     def __init__(self, session: Session):
@@ -77,7 +64,7 @@ class SynthesisEngine:
     def _find_officer_by_key(self, key: str, value: Any) -> Officer | None:
         if not value:
             return None
-        val_str = str(value)
+        val_str = str(value).strip()
         if key == "badge_number":
             return self.session.scalar(select(Officer).where(Officer.badge_number == val_str))
         if key == "employee_id":
@@ -91,6 +78,24 @@ class SynthesisEngine:
                 for off in self.session.scalars(select(Officer)).all():
                     if off.external_ids and off.external_ids.get(key) == val_str:
                         return off
+        return None
+
+    def _find_incident_by_number(self, incident_number: str) -> Incident | None:
+        if not incident_number:
+            return None
+        stmt = select(Incident).where(
+            Incident.external_ids.contains({"incident_number": incident_number})
+        )
+        inc = self.session.scalar(stmt)
+        if inc:
+            return inc
+        if self.session.bind and self.session.bind.dialect.name != "postgresql":
+            for item in self.session.scalars(select(Incident)).all():
+                if (
+                    item.external_ids
+                    and item.external_ids.get("incident_number") == incident_number
+                ):
+                    return item
         return None
 
     def _link_entity(
@@ -118,9 +123,15 @@ class SynthesisEngine:
         return link
 
     def process_incident(self, staging: StagingRecord) -> None:
-        payload = staging.payload.get("attributes", staging.payload.get("row", {}))
+        canonical = staging.payload.get("canonical") or staging.payload.get(
+            "attributes", staging.payload.get("row", {})
+        )
+        evidence = staging.payload.get("evidence", {})
+
         incident_number = (
-            payload.get("incident_number") or payload.get("case_number") or payload.get("id")
+            canonical.get("incident_number")
+            or canonical.get("case_number")
+            or canonical.get("id")
         )
         if not incident_number:
             suspend_staging(
@@ -133,26 +144,35 @@ class SynthesisEngine:
             )
             return
 
-        agency_name = payload.get("agency_name", "Unknown")
+        agency_name = canonical.get("agency_name", "Unknown")
         agency = self._get_or_create_agency(agency_name)
 
-        occurred_at = _safe_parse_datetime(
-            payload.get("date_time") or payload.get("occurred_at")
+        occurred_at = normalize_datetime(
+            canonical.get("occurred_at")
+            or canonical.get("date_time")
+            or canonical.get("occurred_dt")
         )
+
+        incident_data = {
+            **canonical,
+            "evidence": evidence,
+        }
 
         incident = Incident(
             agency_id=agency.id,
-            incident_type=staging.entity_type or payload.get("incident_type", "unknown"),
+            incident_type=staging.entity_type or canonical.get("incident_type", "incident"),
             occurred_at=occurred_at,
-            location=payload.get("location"),
+            location=canonical.get("location"),
             external_ids={
                 "source_id": staging.source_id,
                 "incident_number": str(incident_number),
             },
-            data=payload,
+            data=incident_data,
         )
         self.session.add(incident)
         self.session.flush()
+
+        # Link staging -> incident
         self._link_entity(
             "staging",
             staging.id,
@@ -161,11 +181,37 @@ class SynthesisEngine:
             "derived_from",
             join_key=str(incident_number),
         )
+
+        # Correlate extracted officers from evidence
+        for off_ev in evidence.get("officers", []):
+            badge = off_ev.get("badge_number")
+            emp_id = off_ev.get("employee_id")
+            officer = None
+            if badge:
+                officer = self._find_officer_by_key("badge_number", badge)
+            if not officer and emp_id:
+                officer = self._find_officer_by_key("employee_id", emp_id)
+            if officer:
+                self._link_entity(
+                    "officer",
+                    officer.id,
+                    "incident",
+                    incident.id,
+                    "involved_in",
+                    join_key=str(badge or emp_id or off_ev.get("full_name")),
+                    confidence=off_ev.get("confidence", 0.95),
+                    metadata={"evidence": off_ev},
+                )
+
         mark_synthesized(self.session, staging.id)
 
     def process_arrest(self, staging: StagingRecord) -> None:
-        payload = staging.payload.get("attributes", staging.payload.get("row", {}))
-        booking_number = payload.get("booking_number") or payload.get("arrest_number")
+        canonical = staging.payload.get("canonical") or staging.payload.get(
+            "attributes", staging.payload.get("row", {})
+        )
+        evidence = staging.payload.get("evidence", {})
+
+        booking_number = canonical.get("booking_number") or canonical.get("arrest_number")
         if not booking_number:
             suspend_staging(
                 self.session,
@@ -177,12 +223,27 @@ class SynthesisEngine:
             )
             return
 
-        arrested_at = _safe_parse_datetime(payload.get("arrested_at"))
+        arrested_at = normalize_datetime(
+            canonical.get("arrested_at") or canonical.get("date_time")
+        )
 
-        person_name = payload.get("person_name") or payload.get("name")
+        first_name = canonical.get("person_first_name") or canonical.get("first_name")
+        last_name = canonical.get("person_last_name") or canonical.get("last_name")
+        if not first_name and not last_name and canonical.get("person_name"):
+            parts = str(canonical.get("person_name")).split()
+            first_name = parts[0] if parts else None
+            last_name = parts[-1] if len(parts) > 1 else None
+
         person = None
-        if person_name:
-            person = Person(first_name=str(person_name), last_name="")
+        if first_name or last_name:
+            person = Person(
+                first_name=first_name,
+                last_name=last_name,
+                external_ids={
+                    "source_id": staging.source_id,
+                    "booking_number": str(booking_number),
+                },
+            )
             self.session.add(person)
             self.session.flush()
 
@@ -194,6 +255,30 @@ class SynthesisEngine:
         )
         self.session.add(arrest)
         self.session.flush()
+
+        # Generate Charge entities from canonical charges and extracted statutes
+        charges = canonical.get("charges", [])
+        for ch in charges:
+            charge_obj = Charge(
+                arrest_id=arrest.id,
+                statute=ch.get("statute"),
+                description=ch.get("description"),
+                severity=ch.get("severity", "Felony"),
+                external_ids={"source_id": staging.source_id},
+            )
+            self.session.add(charge_obj)
+
+        for stat_ev in evidence.get("statutes", []):
+            if not any(c.get("statute") == stat_ev.get("statute") for c in charges):
+                charge_obj = Charge(
+                    arrest_id=arrest.id,
+                    statute=stat_ev.get("statute"),
+                    description=stat_ev.get("title"),
+                    severity=stat_ev.get("severity", "Felony"),
+                    external_ids={"source_id": staging.source_id, "extracted": True},
+                )
+                self.session.add(charge_obj)
+
         self._link_entity(
             "staging",
             staging.id,
@@ -205,12 +290,17 @@ class SynthesisEngine:
         mark_synthesized(self.session, staging.id)
 
     def process_use_of_force(self, staging: StagingRecord) -> None:
-        payload = staging.payload.get("attributes", staging.payload.get("row", {}))
-        incident_number = (
-            payload.get("incident_number") or payload.get("case_number") or payload.get("id")
+        canonical = staging.payload.get("canonical") or staging.payload.get(
+            "attributes", staging.payload.get("row", {})
         )
-        officer_badge = payload.get("officer_badge_number") or payload.get("badge_number")
-        officer_employee_id = payload.get("officer_employee_id") or payload.get("employee_id")
+
+        incident_number = (
+            canonical.get("incident_number")
+            or canonical.get("case_number")
+            or canonical.get("id")
+        )
+        officer_badge = canonical.get("officer_badge_number") or canonical.get("badge_number")
+        officer_employee_id = canonical.get("officer_employee_id") or canonical.get("employee_id")
 
         if not officer_badge and not officer_employee_id:
             suspend_staging(
@@ -219,7 +309,7 @@ class SynthesisEngine:
                 "Missing officer_badge_number/officer_employee_id for UOF",
                 required_entity_type="officer",
                 required_key="badge_number",
-                required_value=str(payload.get("officer_name", "UNKNOWN")),
+                required_value=str(canonical.get("officer_name", "UNKNOWN")),
             )
             return
 
@@ -251,24 +341,27 @@ class SynthesisEngine:
             )
             return
 
-        agency_name = payload.get("agency_name", "Phoenix Police Department")
+        agency_name = canonical.get("agency_name", "Phoenix Police Department")
         agency = self._get_or_create_agency(agency_name)
 
-        occurred_at = _safe_parse_datetime(payload.get("date_time"))
+        occurred_at = normalize_datetime(
+            canonical.get("occurred_at") or canonical.get("date_time")
+        )
 
         incident = Incident(
             agency_id=agency.id,
-            incident_type=staging.entity_type,
+            incident_type=staging.entity_type or canonical.get("force_type", "use_of_force"),
             occurred_at=occurred_at,
-            location=payload.get("location"),
+            location=canonical.get("location"),
             external_ids={
                 "source_id": staging.source_id,
                 "incident_number": str(incident_number),
             },
-            data=payload,
+            data=canonical,
         )
         self.session.add(incident)
         self.session.flush()
+
         self._link_entity(
             "staging",
             staging.id,
@@ -288,9 +381,12 @@ class SynthesisEngine:
         mark_synthesized(self.session, staging.id)
 
     def process_officer(self, staging: StagingRecord) -> None:
-        payload = staging.payload.get("row", staging.payload.get("attributes", {}))
-        badge = payload.get("badge_number") or payload.get("badge")
-        employee_id = payload.get("employee_id") or payload.get("officer_id")
+        canonical = staging.payload.get("canonical") or staging.payload.get(
+            "row", staging.payload.get("attributes", {})
+        )
+
+        badge = canonical.get("badge_number") or canonical.get("badge")
+        employee_id = canonical.get("employee_id") or canonical.get("officer_id")
         if not badge and not employee_id:
             suspend_staging(
                 self.session,
@@ -298,23 +394,25 @@ class SynthesisEngine:
                 "Missing badge_number/employee_id for officer",
                 required_entity_type="officer",
                 required_key="badge_number",
-                required_value=str(payload.get("name", "UNKNOWN")),
+                required_value=str(canonical.get("name", "UNKNOWN")),
             )
             return
 
-        agency_name = payload.get("agency_name", "Unknown")
+        agency_name = canonical.get("agency_name", "Unknown")
         agency = self._get_or_create_agency(agency_name)
+
         officer = Officer(
             agency_id=agency.id,
-            first_name=payload.get("first_name"),
-            last_name=payload.get("last_name"),
+            first_name=canonical.get("first_name"),
+            last_name=canonical.get("last_name"),
             badge_number=str(badge) if badge else None,
             employee_id=str(employee_id) if employee_id else None,
             external_ids={"source_id": staging.source_id},
-            status=payload.get("status"),
+            status=canonical.get("status", "Active"),
         )
         self.session.add(officer)
         self.session.flush()
+
         self._link_entity(
             "staging",
             staging.id,
@@ -326,8 +424,11 @@ class SynthesisEngine:
         mark_synthesized(self.session, staging.id)
 
     def process_court_case(self, staging: StagingRecord) -> None:
-        payload = staging.payload.get("docket", staging.payload.get("row", {}))
-        case_number = payload.get("docket_number") or payload.get("case_number")
+        canonical = staging.payload.get("canonical") or staging.payload.get(
+            "docket", staging.payload.get("row", {})
+        )
+
+        case_number = canonical.get("case_number") or canonical.get("docket_number")
         if not case_number:
             suspend_staging(
                 self.session,
@@ -341,13 +442,14 @@ class SynthesisEngine:
 
         court_case = CourtCase(
             case_number=str(case_number),
-            court=payload.get("court"),
-            filed_at=_safe_parse_datetime(payload.get("date_filed")),
-            status=payload.get("status"),
+            court=canonical.get("court"),
+            filed_at=normalize_datetime(canonical.get("filed_at") or canonical.get("date_filed")),
+            status=canonical.get("status", "Active"),
             external_ids={"source_id": staging.source_id},
         )
         self.session.add(court_case)
         self.session.flush()
+
         self._link_entity(
             "staging",
             staging.id,
@@ -359,65 +461,98 @@ class SynthesisEngine:
         mark_synthesized(self.session, staging.id)
 
     def process_document(self, staging: StagingRecord) -> None:
-        payload = staging.payload
+        canonical = staging.payload.get("canonical") or staging.payload
         doc = Document(
             source_id=staging.source_id,
-            doc_type=staging.entity_type or "document",
-            title=payload.get("file_name") or payload.get("title"),
+            doc_type=canonical.get("doc_type") or staging.entity_type or "document",
+            title=canonical.get("title") or canonical.get("file_name"),
             file_path=staging.raw_record.file_path if staging.raw_record else None,
-            text=payload.get("text"),
+            text=canonical.get("text"),
+            published_at=normalize_datetime(canonical.get("published_at")),
             external_ids={"source_id": staging.source_id},
         )
         self.session.add(doc)
         self.session.flush()
+
         self._link_entity("staging", staging.id, "document", doc.id, "derived_from")
         mark_synthesized(self.session, staging.id)
 
     def process_news(self, staging: StagingRecord) -> None:
-        entry = staging.payload.get("entry", {})
+        canonical = staging.payload.get("canonical") or staging.payload.get(
+            "entry", staging.payload
+        )
+        evidence = staging.payload.get("evidence", {})
+
         article = NewsArticle(
             source_id=staging.source_id,
-            title=entry.get("title", "Untitled"),
-            url=entry.get("link", ""),
-            published_at=_safe_parse_datetime(entry.get("published")),
-            content=entry.get("summary"),
+            title=canonical.get("title", "Untitled Article"),
+            url=canonical.get("url") or canonical.get("link", ""),
+            published_at=normalize_datetime(
+                canonical.get("published_at") or canonical.get("published")
+            ),
+            content=canonical.get("content") or canonical.get("summary"),
             external_ids={"source_id": staging.source_id},
         )
         self.session.add(article)
         self.session.flush()
+
         self._link_entity("staging", staging.id, "news_article", article.id, "derived_from")
+
+        # Correlate extracted incidents from news evidence
+        for inc_ev in evidence.get("incidents", []):
+            inc_id = inc_ev.get("incident_number")
+            inc = self._find_incident_by_number(inc_id)
+            if inc:
+                self._link_entity(
+                    "news_article",
+                    article.id,
+                    "incident",
+                    inc.id,
+                    "reports_on",
+                    join_key=inc_id,
+                    confidence=inc_ev.get("confidence", 0.90),
+                )
+
         mark_synthesized(self.session, staging.id)
 
     def process_monitor_report(self, staging: StagingRecord) -> None:
-        payload = staging.payload
+        canonical = staging.payload.get("canonical") or staging.payload
         report = MonitorReport(
             agency_id=None,
-            period=payload.get("period"),
-            report_date=_safe_parse_datetime(payload.get("published_at")),
-            compliance_data=payload,
+            period=canonical.get("period"),
+            report_date=normalize_datetime(
+                canonical.get("report_date") or canonical.get("published_at")
+            ),
+            compliance_data=canonical.get("compliance_data", canonical),
             document_id=None,
         )
         self.session.add(report)
         self.session.flush()
+
         self._link_entity("staging", staging.id, "monitor_report", report.id, "derived_from")
         mark_synthesized(self.session, staging.id)
 
     def process_surveillance_event(self, staging: StagingRecord) -> None:
-        payload = staging.payload.get("row", staging.payload.get("attributes", {}))
-        agency_name = payload.get("agency_name", "Unknown")
+        canonical = staging.payload.get("canonical") or staging.payload.get(
+            "row", staging.payload.get("attributes", {})
+        )
+        agency_name = canonical.get("agency_name", "Unknown")
         agency = self._get_or_create_agency(agency_name)
 
-        occurred_at = _safe_parse_datetime(payload.get("date_time"))
+        occurred_at = normalize_datetime(
+            canonical.get("occurred_at") or canonical.get("date_time")
+        )
 
         event = SurveillanceEvent(
             agency_id=agency.id,
-            event_type=staging.entity_type or payload.get("event_type", "alpr"),
+            event_type=canonical.get("event_type") or staging.entity_type or "alpr",
             occurred_at=occurred_at,
-            location=payload.get("location"),
-            metadata_=payload,
+            location=canonical.get("location"),
+            metadata_=canonical,
         )
         self.session.add(event)
         self.session.flush()
+
         self._link_entity("staging", staging.id, "surveillance_event", event.id, "derived_from")
         mark_synthesized(self.session, staging.id)
 
@@ -439,13 +574,18 @@ class SynthesisEngine:
         """Route a staging record to the correct processor based on entity type."""
         staging.synthesis_run_id = self.synthesis_run.id
         entity_type = staging.entity_type
-        if entity_type in ("incident", "death"):
+        if entity_type in ("incident", "death", "calls_for_service", "general_offense"):
             self.process_incident(staging)
-        elif entity_type == "arrest":
+        elif entity_type in ("arrest", "charge"):
             self.process_arrest(staging)
-        elif entity_type in ("use_of_force", "officer_involved_shooting"):
+        elif entity_type in (
+            "use_of_force",
+            "officer_involved_shooting",
+            "pointed_gun",
+            "show_of_force",
+        ):
             self.process_use_of_force(staging)
-        elif entity_type in ("officer", "officer_certification"):
+        elif entity_type in ("officer", "officer_certification", "personnel"):
             self.process_officer(staging)
         elif entity_type in ("court_case", "public_records_request"):
             self.process_court_case(staging)
@@ -455,7 +595,7 @@ class SynthesisEngine:
             self.process_news(staging)
         elif entity_type == "monitor_report":
             self.process_monitor_report(staging)
-        elif entity_type == "surveillance_event":
+        elif entity_type in ("surveillance_event", "alpr"):
             self.process_surveillance_event(staging)
         else:
             self.process_unknown(staging)

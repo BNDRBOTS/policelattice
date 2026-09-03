@@ -26,6 +26,7 @@ from app.ingestion.web_scraper import WebScraperAdapter
 from app.models import (
     Agency,
     Arrest,
+    Charge,
     CourtCase,
     DataSource,
     Document,
@@ -37,6 +38,8 @@ from app.models import (
     StagingRecord,
     SurveillanceEvent,
 )
+from app.pipeline.extraction import EvidenceExtractionEngine
+from app.pipeline.normalization import CanonicalNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -182,10 +185,8 @@ def _checksum_exists(session: Session, source_id: str, checksum: str) -> bool:
 
 
 def run_source(session: Session, source_def: dict[str, Any]) -> int:
-    """Run a single source definition. Returns number of new raw records created.
-
-    Deduplicates by checksum: if a RawRecord with the same checksum already
-    exists for this source_id, it is skipped entirely.
+    """Run a single source definition with autonomous acquisition, canonical
+    normalization, evidence extraction, and checksum deduplication.
     """
     source_id = source_def["id"]
     source = get_source_by_id(session, source_id)
@@ -206,6 +207,7 @@ def run_source(session: Session, source_def: dict[str, Any]) -> int:
     count = 0
     skipped = 0
     batch_id = uuid.uuid4().hex
+
     for raw_dto in raw_records:
         checksum = raw_dto.compute_checksum()
 
@@ -232,11 +234,33 @@ def run_source(session: Session, source_def: dict[str, Any]) -> int:
         session.add(raw)
         session.flush()
 
+        # 1. Canonical Normalization
+        normalized = CanonicalNormalizer.normalize(
+            raw_payload,
+            entity_type=source_def.get("entity_type", "incident"),
+            source_id=source_id,
+        )
+
+        # 2. Evidence Extraction
+        evidence = EvidenceExtractionEngine.extract_from_record(raw_payload)
+
+        # 3. Comprehensive Staging Payload
+        staging_payload = {
+            "canonical": normalized.canonical_payload,
+            "evidence": evidence.to_dict(),
+            "raw": raw_payload,
+        }
+
+        # Preserve top-level keys for backward compatibility
+        for k, v in raw_payload.items():
+            if k not in staging_payload:
+                staging_payload[k] = v
+
         staging = StagingRecord(
             raw_record_id=raw.id,
             source_id=source_id,
-            entity_type=source_def.get("entity_type", "unknown"),
-            payload=raw_payload,
+            entity_type=normalized.canonical_type,
+            payload=staging_payload,
             record_hash=checksum,
             status="pending",
         )
@@ -257,14 +281,7 @@ def run_source(session: Session, source_def: dict[str, Any]) -> int:
 
 
 def run_all_due() -> dict[str, Any]:
-    """Run only sources whose cron schedule matches the current time.
-
-    Sources with schedule=null (manual/on-demand) are skipped here and
-    must be triggered via POST /ingest/run.
-
-    Returns a dict mapping source_id to either the record count (int) or
-    an error string prefixed with 'ERROR:'.
-    """
+    """Run only sources whose cron schedule matches the current time."""
     sources = load_catalog()
     now = _utcnow()
     result: dict[str, Any] = {}
@@ -294,11 +311,7 @@ def run_all_due() -> dict[str, Any]:
 
 
 def run_all_sources() -> dict[str, Any]:
-    """Run ALL sources regardless of schedule (manual trigger).
-
-    Used by POST /ingest/run for on-demand ingestion of every source.
-    Deduplication by checksum still applies within run_source().
-    """
+    """Run ALL sources regardless of schedule (manual trigger)."""
     sources = load_catalog()
     result: dict[str, Any] = {}
     with SessionLocal() as session:
@@ -319,20 +332,23 @@ def run_all_sources() -> dict[str, Any]:
 
 def run_full_pipeline(session: Session | None = None, force: bool = True) -> dict[str, Any]:
     """Execute the full end-to-end data pipeline:
-    1. Ingestion: Ingests records from all configured sources (or due sources).
-    2. Synthesis: Synthesizes staging records into core lattice entities.
-    3. Resolution: Resolves suspended records whose relational dependencies have arrived.
-    4. Re-synthesis: Completes synthesis for newly-resolved records.
-    5. Returns unified execution statistics and entity lattice counts.
+    1. Acquisition: Ingests raw data from all active/due sources.
+    2. Normalization: Normalizes heterogeneous fields to canonical schemas.
+    3. Evidence Extraction: Extracts structured entities (officers, force, statutes).
+    4. Synthesis: Synthesizes staging records into core lattice entities.
+    5. Resolution: Resolves suspended records whose relational dependencies have arrived.
+    6. Re-synthesis: Completes synthesis for newly-resolved records.
+    7. Returns unified execution statistics and entity lattice counts.
     """
     from app.pipeline.resolver import DependencyResolver
     from app.pipeline.synthesis import SynthesisEngine
 
-    # 1. Ingestion
+    # 1. Ingestion / Autonomous Acquisition
     ingest_results = run_all_sources() if force else run_all_due()
     total_ingested = sum(v for v in ingest_results.values() if isinstance(v, int))
 
     def _execute_synthesis_cycle(s: Session) -> tuple[dict[str, Any], int]:
+        s.expire_all()
         engine = SynthesisEngine(s)
         s_stats = engine.execute()
 
@@ -353,6 +369,7 @@ def run_full_pipeline(session: Session | None = None, force: bool = True) -> dic
             "incidents": s.scalar(select(func.count(Incident.id))) or 0,
             "officers": s.scalar(select(func.count(Officer.id))) or 0,
             "arrests": s.scalar(select(func.count(Arrest.id))) or 0,
+            "charges": s.scalar(select(func.count(Charge.id))) or 0,
             "agencies": s.scalar(select(func.count(Agency.id))) or 0,
             "links": s.scalar(select(func.count(EntityLink.id))) or 0,
             "court_cases": s.scalar(select(func.count(CourtCase.id))) or 0,
