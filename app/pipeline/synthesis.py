@@ -53,7 +53,7 @@ class SynthesisEngine:
         session.add(self.synthesis_run)
         session.flush()
 
-    def _get_or_create_agency(self, name: str | None, state: str | None = "AZ") -> Agency:
+    def _get_or_create_agency(self, name: str | None, state: str | None = None) -> Agency:
         clean_name = str(name).strip() if name else ""
         if not clean_name or clean_name.lower() in ("unknown", "null", "none"):
             # Honest labeling of missing attribution — never a fabricated agency.
@@ -311,7 +311,7 @@ class SynthesisEngine:
                 arrest_id=arrest.id,
                 statute=ch.get("statute"),
                 description=ch.get("description"),
-                severity=ch.get("severity", "Felony"),
+                severity=ch.get("severity"),
                 external_ids={"source_id": staging.source_id},
             )
             self.session.add(charge_obj)
@@ -322,7 +322,7 @@ class SynthesisEngine:
                     arrest_id=arrest.id,
                     statute=stat_ev.get("statute"),
                     description=stat_ev.get("title"),
-                    severity=stat_ev.get("severity", "Felony"),
+                    severity=stat_ev.get("severity"),
                     external_ids={"source_id": staging.source_id, "extracted": True},
                 )
                 self.session.add(charge_obj)
@@ -392,7 +392,7 @@ class SynthesisEngine:
         else:
             incident = Incident(
                 agency_id=agency.id,
-                incident_type=staging.entity_type or canonical.get("force_type", "use_of_force"),
+                incident_type=staging.entity_type or canonical.get("force_type"),
                 occurred_at=occurred_at,
                 location=canonical.get("location"),
                 external_ids={
@@ -613,7 +613,7 @@ class SynthesisEngine:
         canonical = staging.payload.get("canonical") or staging.payload
         report = MonitorReport(
             agency_id=None,
-            period=canonical.get("period", "Quarterly"),
+            period=canonical.get("period"),
             report_date=normalize_datetime(
                 canonical.get("report_date") or canonical.get("published_at")
             ),
@@ -630,7 +630,7 @@ class SynthesisEngine:
         canonical = staging.payload.get("canonical") or staging.payload.get(
             "row", staging.payload.get("attributes", staging.payload)
         )
-        agency_name = canonical.get("agency_name", "Unknown")
+        agency_name = canonical.get("agency_name")
         agency = self._get_or_create_agency(agency_name)
 
         occurred_at = normalize_datetime(
@@ -639,7 +639,7 @@ class SynthesisEngine:
 
         event = SurveillanceEvent(
             agency_id=agency.id,
-            event_type=canonical.get("event_type") or staging.entity_type or "alpr",
+            event_type=canonical.get("event_type"),
             occurred_at=occurred_at,
             location=canonical.get("location"),
             metadata_=canonical,

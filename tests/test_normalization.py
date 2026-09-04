@@ -131,4 +131,7 @@ def test_canonical_normalizer_arrest():
     assert payload["booking_number"] == "BK-2025-001"
     assert len(payload["charges"]) == 1
     assert payload["charges"][0]["statute"] == "ARS 13-1204"
-    assert payload["charges"][0]["severity"] == "Felony"
+    # Severity is never inferred from the statute prefix (ARS Title 13
+    # contains both felonies and misdemeanors); it is None unless the
+    # source record explicitly states it.
+    assert payload["charges"][0]["severity"] is None

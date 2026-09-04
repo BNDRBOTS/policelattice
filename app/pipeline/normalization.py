@@ -374,8 +374,8 @@ class CanonicalNormalizer:
             "person_last_name": last_name,
             "cause_of_death": data.get("cause_of_death"),
             "armed_status": data.get("armed") or data.get("armed_status"),
-            "city": data.get("city", "Phoenix"),
-            "state": data.get("state", "AZ"),
+            "city": data.get("city"),
+            "state": data.get("state"),
             "external_ids": {
                 "source_id": source_id,
                 "incident_number": normalize_identifier(inc_num),
@@ -448,11 +448,11 @@ class CanonicalNormalizer:
         raw_statute = data.get("statute") or data.get("statutes")
         raw_charge = data.get("charge_description") or data.get("charges") or data.get("charge")
         if raw_statute or raw_charge:
-            is_felony = "13-" in str(raw_statute or "")
             charges.append({
                 "statute": str(raw_statute) if raw_statute else None,
                 "description": str(raw_charge) if raw_charge else None,
-                "severity": data.get("severity", "Felony" if is_felony else "Misdemeanor"),
+                # Severity only when the source states it — never inferred.
+                "severity": data.get("severity"),
             })
 
         return {
@@ -496,13 +496,13 @@ class CanonicalNormalizer:
         agency = normalize_agency_name(data.get("agency_name") or data.get("agency"))
         location = normalize_location(data.get("location") or data.get("address"))
 
-        force_type = data.get("force_type") or data.get("uof_type") or entity_type
+        force_type = data.get("force_type") or data.get("uof_type")
 
         return {
             "incident_number": inc_num,
             "officer_badge_number": badge,
             "officer_employee_id": emp_id,
-            "force_type": str(force_type),
+            "force_type": str(force_type) if force_type else None,
             "occurred_at": dt.isoformat() if dt else None,
             "agency_name": agency,
             "location": location,
@@ -540,14 +540,14 @@ class CanonicalNormalizer:
 
     @classmethod
     def _normalize_news(cls, data: dict[str, Any], source_id: str | None) -> dict[str, Any]:
-        title = data.get("title", "Untitled Article")
-        url = data.get("link") or data.get("url") or ""
+        title = data.get("title")
+        url = data.get("link") or data.get("url")
         dt = normalize_datetime(data.get("published") or data.get("published_at"))
         summary = data.get("summary") or data.get("content") or data.get("description")
 
         return {
-            "title": str(title),
-            "url": str(url),
+            "title": str(title) if title else None,
+            "url": str(url) if url else None,
             "published_at": dt.isoformat() if dt else None,
             "content": str(summary) if summary else None,
             "external_ids": {"source_id": source_id},
@@ -558,7 +558,7 @@ class CanonicalNormalizer:
         agency = normalize_agency_name(data.get("agency_name") or data.get("agency"))
         dt = normalize_datetime(data.get("date_time") or data.get("occurred_at"))
         location = normalize_location(data.get("location") or data.get("address"))
-        event_type = data.get("event_type") or "alpr"
+        event_type = data.get("event_type")
 
         return {
             "agency_name": agency,
@@ -585,12 +585,12 @@ class CanonicalNormalizer:
     def _normalize_document(
         cls, data: dict[str, Any], doc_type: str, source_id: str | None
     ) -> dict[str, Any]:
-        title = data.get("file_name") or data.get("title") or "Document"
+        title = data.get("file_name") or data.get("title")
         text = data.get("text") or data.get("content") or str(data)
         dt = normalize_datetime(data.get("published_at") or data.get("created_at"))
 
         return {
-            "title": str(title),
+            "title": str(title) if title else None,
             "doc_type": doc_type,
             "text": str(text),
             "published_at": dt.isoformat() if dt else None,

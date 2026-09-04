@@ -160,16 +160,27 @@ def test_source_code_contains_no_fabrication_literals():
         "police-lattice.local",
         'f"OFF-',
         'f"INC-',
+        # invented geo/severity/period/type defaults (found in v2 audit)
+        '"Phoenix")',
+        '"AZ")',
+        '"Felony")',
+        '"Misdemeanor")',
+        '"Quarterly")',
+        'or "alpr"',
+        '"Untitled Article"',
+        '"Criminal Statute Violation"',
     )
     banned_pairs = (
         # (fallback expression, must not appear)
         ('return "Phoenix Police Department"', "agency-name fallback"),
         ('or "Phoenix Police Department"', "agency default"),
         ('"Phoenix Police Department")', "default argument"),
+        ('or entity_type', "force-type entity-label fallback"),
     )
     for path in (
         pathlib.Path("app/pipeline/synthesis.py"),
         pathlib.Path("app/pipeline/normalization.py"),
+        pathlib.Path("app/pipeline/extraction.py"),
         pathlib.Path("app/analytics/engine.py"),
         pathlib.Path("app/api/main.py"),
     ):
@@ -178,3 +189,96 @@ def test_source_code_contains_no_fabrication_literals():
             assert literal not in src, f"{literal} found in {path}"
         for literal, label in banned_pairs:
             assert literal not in src, f"{label} ({literal}) found in {path}"
+
+
+def test_incident_normalization_invents_no_geo():
+    canon = CanonicalNormalizer.normalize(
+        {"row": {"incident_number": "X-1", "occurred_at": "2026-09-01T00:00:00+00:00"}},
+        entity_type="incident",
+        source_id="t",
+    ).canonical_payload
+    assert canon["city"] is None, "city must not default to Phoenix"
+    assert canon["state"] is None, "state must not default to AZ"
+    assert canon["agency_name"] is None
+
+
+def test_arrest_and_uof_normalization_invent_no_severity_or_type():
+    arrest = CanonicalNormalizer.normalize(
+        {"row": {"booking_number": "B-1", "statute": "ARS 13-2904"}},
+        entity_type="arrest",
+        source_id="t",
+    ).canonical_payload
+    assert arrest["charges"][0]["severity"] is None, "severity never inferred"
+
+    uof = CanonicalNormalizer.normalize(
+        {"row": {"incident_number": "U-1"}},
+        entity_type="use_of_force",
+        source_id="t",
+    ).canonical_payload
+    assert uof["force_type"] is None, "force_type must not fall back to entity label"
+
+
+def test_statute_extraction_never_classifies_severity():
+    from app.pipeline.extraction import EvidenceExtractionEngine
+
+    ev = EvidenceExtractionEngine.extract_from_text(
+        "Charge: ARS 13-1204 aggravated assault and ARS 13-2904 disorderly conduct."
+    )
+    for st in ev.to_dict()["statutes"]:
+        assert st["severity"] is None
+        assert st["title"] is None or st["statute_code"] in st.get("statute", "")
+
+
+def test_legacy_database_purged_on_schema_guard():
+    """Legacy rows (fabricated by pre-v2 code) are purged automatically;
+    current-version databases are left untouched."""
+    import json
+
+    import sqlalchemy as sa
+    from sqlalchemy.pool import StaticPool
+
+    from app.db import SCHEMA_VERSION, Base, ensure_schema_current
+
+    engine = sa.create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+
+    # Simulate a legacy database: fabricated rows, no lattice_meta marker.
+    fabricated = json.dumps(
+        {"agency_name": "Phoenix Police Department", "city": "Phoenix"}
+    )
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "INSERT INTO incidents "
+                "(agency_id, incident_type, external_ids, data, created_at, updated_at) "
+                "VALUES (NULL, 'incident', '{}', :d, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            ),
+            {"d": fabricated},
+        )
+    ensure_schema_current(engine)
+    with engine.connect() as conn:
+        count = conn.execute(sa.text("SELECT COUNT(*) FROM incidents")).scalar()
+        version = conn.execute(
+            sa.text("SELECT value FROM lattice_meta WHERE key='schema_version'")
+        ).scalar()
+    assert count == 0, "legacy fabricated rows must be purged"
+    assert int(version) == SCHEMA_VERSION
+
+    # Current-version DB is preserved.
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                "INSERT INTO incidents "
+                "(agency_id, incident_type, external_ids, data, created_at, updated_at) "
+                "VALUES (NULL, 'incident', '{}', '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            )
+        )
+    result = ensure_schema_current(engine)
+    assert result["action"] == "none"
+    with engine.connect() as conn:
+        count = conn.execute(sa.text("SELECT COUNT(*) FROM incidents")).scalar()
+    assert count == 1

@@ -4,6 +4,7 @@ import logging
 import os
 import time
 from contextlib import contextmanager
+from typing import Any
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -119,6 +120,87 @@ def apply_schema_patches(engine) -> None:
                 logger.debug("Schema patch skipped (%s): %s", description, exc)
 
 
+# ---------------------------------------------------------------------------
+# Schema versioning & automatic purge of legacy (pre-zero-fabrication) data
+# ---------------------------------------------------------------------------
+
+# v1 (legacy): pipeline code that fabricated default values (agency
+#              attribution, city/state, severity, ranks, statuses).
+# v2: zero-fabrication pipeline (honest None / explicit "not recorded"
+#              labeling) + verify-phase gating.
+SCHEMA_VERSION = 2
+
+MARKER_DDL = (
+    "CREATE TABLE IF NOT EXISTS lattice_meta "
+    "(key VARCHAR(64) PRIMARY KEY, value VARCHAR(64) NOT NULL)"
+)
+
+
+def _read_schema_version(engine) -> int | None:
+    from sqlalchemy import inspect
+
+    insp = inspect(engine)
+    if not insp.has_table("lattice_meta"):
+        return None
+    with engine.begin() as conn:
+        val = conn.execute(
+            text("SELECT value FROM lattice_meta WHERE key = 'schema_version'")
+        ).scalar()
+    return int(val) if val is not None and str(val).isdigit() else None
+
+
+def ensure_schema_current(engine) -> dict[str, Any]:
+    """Guarantee the database matches the current zero-fabrication schema.
+
+    If the schema-version marker is missing (a database written by legacy
+    pipeline code) or outdated, ALL pipeline tables are dropped and
+    recreated empty. Every row the pipeline stores derives from live,
+    re-fetchable public sources, and legacy rows are known to contain
+    fabricated values (default agency attribution, invented city/state,
+    invented severity). Purging is therefore the only correct autonomous
+    action: the startup pipeline re-ingests everything live immediately
+    after. Current-version databases are left untouched.
+    """
+    from sqlalchemy import inspect
+
+    import app.models  # noqa: F401 - register models for drop/create
+
+    current = _read_schema_version(engine)
+    if current == SCHEMA_VERSION:
+        return {"action": "none", "purged": False}
+
+    insp = inspect(engine)
+    legacy_tables = [
+        t
+        for t in ("incidents", "staging_records", "raw_records", "officers", "news_articles")
+        if insp.has_table(t)
+    ]
+    purged = bool(legacy_tables) or current is not None
+    if purged:
+        logger.warning(
+            "Database schema version %s != current %d: purging ALL pipeline tables "
+            "(%d tables) - legacy rows contain values fabricated by pre-v2 code; "
+            "all data is re-ingested live by the startup pipeline",
+            current,
+            SCHEMA_VERSION,
+            len(Base.metadata.sorted_tables),
+        )
+        Base.metadata.drop_all(bind=engine)
+        with engine.begin() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS lattice_meta"))
+
+    Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        conn.execute(text(MARKER_DDL))
+        conn.execute(
+            text(
+                "INSERT INTO lattice_meta (key, value) VALUES ('schema_version', :v)"
+            ).bindparams(v=str(SCHEMA_VERSION))
+        )
+    logger.info("Database at schema version %d", SCHEMA_VERSION)
+    return {"action": "purged" if purged else "initialized", "purged": purged}
+
+
 def init_database_with_retry(max_retries: int = 10, retry_delay: int = 3) -> bool:
     """Attempt to connect to the database and initialize all tables.
 
@@ -133,7 +215,7 @@ def init_database_with_retry(max_retries: int = 10, retry_delay: int = 3) -> boo
         try:
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            Base.metadata.create_all(bind=engine)
+            ensure_schema_current(engine)
             install_immutability_guards(engine)
             apply_schema_patches(engine)
             logger.info("Database connection established and schema initialized (%s)", db_target)

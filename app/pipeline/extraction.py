@@ -284,13 +284,16 @@ class EvidenceExtractionEngine:
             if code not in seen:
                 seen.add(code)
                 full_statute = f"ARS {code}"
-                title = ARS_TITLE_MAP.get(code, "Criminal Statute Violation")
-                severity = "Felony" if code.startswith("13-") else "Misdemeanor"
+                # Title only from the verified statute map; severity is never
+                # inferred (ARS Title 13 contains both felonies and
+                # misdemeanors — classification by prefix would be invented
+                # and potentially wrong).
+                title = ARS_TITLE_MAP.get(code)
                 statutes.append({
                     "statute": full_statute,
                     "statute_code": code,
                     "title": title,
-                    "severity": severity,
+                    "severity": None,
                     "confidence": 0.98,
                     "snippet": cls._snippet(text, match.start(), match.end()),
                 })
