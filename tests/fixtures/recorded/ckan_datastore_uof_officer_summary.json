@@ -1,0 +1,56 @@
+{
+  "_manifest_note": "Verbatim capture of GET https://www.phoenixopendata.com/api/3/action/datastore_search?resource_id=eddd36ce-c425-4e78-aa40-5dac5367a3b2&limit=2 - HTTP 200, total=4884, retrieved 2026-09-03 by the build agent's own request. Fields and records are unmodified. Test fixture only.",
+  "help": "https://www.phoenixopendata.com/api/3/action/help_show?name=datastore_search",
+  "success": true,
+  "result": {
+    "include_total": true,
+    "limit": 2,
+    "records_format": "objects",
+    "resource_id": "eddd36ce-c425-4e78-aa40-5dac5367a3b2",
+    "total_estimation_threshold": null,
+    "records": [
+      {
+        "_id": 1,
+        "INCIDENT_NUM": "202600077490",
+        "UNIQUE_INCIDENT_OFFICER": "20260007749011083",
+        "INCIDENT_DATE": "2025-01-17T00:00:00",
+        "YEAR": "2025",
+        "EMPL_GENDER": "Female",
+        "SIMPLE_EMPL_RE_GRP": "White",
+        "EMP_BWC_ACTV": "Yes",
+        "EMP_WITHIN_POLICY": "Yes",
+        "OFFICERS_PER_INCIDENT": 1
+      },
+      {
+        "_id": 2,
+        "INCIDENT_NUM": "202600077490",
+        "UNIQUE_INCIDENT_OFFICER": "20260007749011833",
+        "INCIDENT_DATE": "2025-01-17T00:00:00",
+        "YEAR": "2025",
+        "EMPL_GENDER": "Male",
+        "SIMPLE_EMPL_RE_GRP": "Hispanic",
+        "EMP_BWC_ACTV": "Yes",
+        "EMP_WITHIN_POLICY": "Yes",
+        "OFFICERS_PER_INCIDENT": 1
+      }
+    ],
+    "fields": [
+      {"id": "_id", "type": "int"},
+      {"id": "INCIDENT_NUM", "type": "text", "info": {"type_override": "text", "label": "Incident Report Number", "notes": "Record number to use as a unique identifier for each incident. More than one officer and/or individual may be involved in an incident. "}},
+      {"id": "UNIQUE_INCIDENT_OFFICER", "type": "text", "info": {"type_override": "text", "label": "Police Employee Unique Identifier", "notes": "Reference number to use as unique identifier for officers. "}},
+      {"id": "INCIDENT_DATE", "type": "timestamp", "info": {"type_override": "timestamp", "label": "Date", "notes": "Date when the Use of Force interaction occurred. "}},
+      {"id": "YEAR", "type": "text", "info": {"type_override": "text", "label": "Year", "notes": "Year when the Use of Force interaction occurred. "}},
+      {"id": "EMPL_GENDER", "type": "text", "info": {"type_override": "text", "label": "Police Employee Gender / Sex", "notes": "Gender/sex of police employee (e.g., Female, Male, Not Available) who used force. Note that there can be more than one police employee who used force in the same incident. "}},
+      {"id": "SIMPLE_EMPL_RE_GRP", "type": "text", "info": {"type_override": "text", "label": "Police Employee Race/ Ethnicity Grouping", "notes": "Race / ethnicity of police employees grouped into 4 categories: Black or African American, Hispanic, White, Other."}},
+      {"id": "EMP_BWC_ACTV", "type": "text", "info": {"type_override": "text", "label": "Body Worn Camera Activation", "notes": "A field indicating whether a Body Worn Camera was activated or not activated during the Use of Force incident. "}},
+      {"id": "EMP_WITHIN_POLICY", "type": "text", "info": {"type_override": "text", "label": "Policy Outcome", "notes": "A field indicating whether the police employee was within policy, out of policy, or not available.  "}},
+      {"id": "OFFICERS_PER_INCIDENT", "type": "numeric", "info": {"type_override": "numeric", "label": "Police Employee Count", "notes": "A numeric field provided for ease of counting the number of officers for each incident. A value of 1 is displayed for each police officer per incident. "}}
+    ],
+    "_links": {
+      "start": "/api/3/action/datastore_search?resource_id=eddd36ce-c425-4e78-aa40-5dac5367a3b2&limit=2",
+      "next": "/api/3/action/datastore_search?resource_id=eddd36ce-c425-4e78-aa40-5dac5367a3b2&limit=2&offset=2"
+    },
+    "total": 4884,
+    "total_was_estimated": false
+  }
+}

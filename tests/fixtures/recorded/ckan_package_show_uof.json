@@ -1,0 +1,36 @@
+{
+  "_manifest_note": "package_show envelope for City of Phoenix 'uof'. Package id c48012b8-45f2-4be3-afac-a5d91b0bdc94 and resource id eddd36ce-c425-4e78-aa40-5dac5367a3b2 (Use of Force Officer Summary) are the real identifiers read from https://www.phoenixopendata.com/dataset/uof on 2026-09-03. Only that one resource is listed here to keep the transport test focused. Test fixture only.",
+  "success": true,
+  "result": {
+    "id": "c48012b8-45f2-4be3-afac-a5d91b0bdc94",
+    "name": "uof",
+    "title": "Officer Use of Force (UOF)",
+    "notes": "This dataset contains Use of Force (UOF) incidents from February 18, 2025 forward, including demographic information for officers as well as individuals. Data is updated monthly on the 1st, following completion of a 3-month review period",
+    "license_id": "cc-by",
+    "num_resources": 1,
+    "organization": {
+      "id": "e390cdcb-e4b0-4e2d-862b-9f5c49dd7bac",
+      "name": "police-department",
+      "title": "Police",
+      "type": "organization",
+      "is_organization": true,
+      "state": "active"
+    },
+    "owner_org": "e390cdcb-e4b0-4e2d-862b-9f5c49dd7bac",
+    "state": "active",
+    "type": "dataset",
+    "resources": [
+      {
+        "id": "eddd36ce-c425-4e78-aa40-5dac5367a3b2",
+        "resource_id": "eddd36ce-c425-4e78-aa40-5dac5367a3b2",
+        "name": "Use of Force Officer Summary",
+        "format": "CSV",
+        "datastore_active": true,
+        "datastore_contains_all_records_of_source_file": true,
+        "package_id": "c48012b8-45f2-4be3-afac-a5d91b0bdc94",
+        "url": "https://www.phoenixopendata.com/dataset/c48012b8-45f2-4be3-afac-a5d91b0bdc94/resource/eddd36ce-c425-4e78-aa40-5dac5367a3b2/download/uof_use-of-force-officer-summary_officer.csv",
+        "url_type": "upload"
+      }
+    ]
+  }
+}

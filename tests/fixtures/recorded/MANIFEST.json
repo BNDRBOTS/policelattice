@@ -1,0 +1,33 @@
+{
+  "purpose": "Byte-level captures of live public endpoints, used ONLY by the pytest suite so it can exercise the real httpx transport, parsers and synthesis code without outbound network. The application has no code path that reads this directory; tests/test_no_fabrication.py fails the build if one is ever added.",
+  "captured_on": "2026-09-03",
+  "files": [
+    {
+      "name": "ckan_package_list.json",
+      "origin": "https://www.phoenixopendata.com/api/3/action/package_list",
+      "http_status": 200,
+      "verbatim": true,
+      "note": "Complete package slug list as returned, 160+ datasets."
+    },
+    {
+      "name": "ckan_datastore_uof_officer_summary.json",
+      "origin": "https://www.phoenixopendata.com/api/3/action/datastore_search?resource_id=eddd36ce-c425-4e78-aa40-5dac5367a3b2&limit=2",
+      "http_status": 200,
+      "verbatim": true,
+      "reported_total": 4884,
+      "note": "fields and records unmodified. Confirms UNIQUE_INCIDENT_OFFICER, EMP_WITHIN_POLICY and EMP_BWC_ACTV exist."
+    },
+    {
+      "name": "ckan_package_show_uof.json",
+      "origin": "https://www.phoenixopendata.com/dataset/uof",
+      "verbatim": false,
+      "note": "package_show envelope reconstructed from the real, verified package id and resource id. Only the Officer Summary resource is listed."
+    },
+    {
+      "name": "ckan_datastore_uof_volume.json",
+      "origin": null,
+      "verbatim": false,
+      "note": "Synthetic 300-row dataset with the same column names, generated for dedupe/volume tests. Clearly not real records."
+    }
+  ]
+}

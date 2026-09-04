@@ -1,7 +1,14 @@
+"""Lattice schema.
+
+Design rule enforced throughout: **no column has a default that could be
+mistaken for source data.** Every provenance column is ``nullable=False``
+because a record without a known source is not admissible, and every
+descriptive column is nullable because the source may not state it.
+"""
+
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime
 
 from sqlalchemy import (
     JSON,
@@ -15,292 +22,380 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 
-# Supports native JSONB on PostgreSQL and fallback JSON on SQLite/other dialects
-JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
 
+class DataSource(Base):
+    """A configured upstream source and its most recent verified state."""
 
-def _utcnow() -> datetime:
-    """Return current UTC time with timezone awareness."""
-    return datetime.now(UTC)
-
-
-class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
-    )
-
-
-class DataSource(TimestampMixin, Base):
     __tablename__ = "data_sources"
 
     id: Mapped[str] = mapped_column(String(120), primary_key=True)
-    name: Mapped[str] = mapped_column(String(500), nullable=False)
-    category: Mapped[str] = mapped_column(String(120), nullable=False)
-    adapter: Mapped[str] = mapped_column(String(120), nullable=False)
-    access_mode: Mapped[str] = mapped_column(String(60), nullable=False)
-    schedule: Mapped[str | None] = mapped_column(String(120))
-    availability_window: Mapped[str | None] = mapped_column(String(200))
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    name: Mapped[str] = mapped_column(String(255))
+    kind: Mapped[str] = mapped_column(String(40))  # ckan|arcgis_hub|http_tabular|rss
+    publisher: Mapped[str | None] = mapped_column(String(255))
+    endpoint: Mapped[str | None] = mapped_column(Text)
+    schedule: Mapped[str | None] = mapped_column(String(60))
+    entity_type: Mapped[str | None] = mapped_column(String(60))
+
+    # Verification state — written by the Verify phase, never assumed.
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verified_ok: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    http_status: Mapped[int | None] = mapped_column(Integer)
     last_error: Mapped[str | None] = mapped_column(Text)
-    config: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
+    rows_total_reported: Mapped[int | None] = mapped_column(Integer)
+
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rows_fetched_last_run: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    rows_new_last_run: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
-class RawRecord(TimestampMixin, Base):
+class FetchLog(Base):
+    """One HTTP retrieval. This is the citation trail for every record."""
+
+    __tablename__ = "fetch_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_id: Mapped[str] = mapped_column(String(120), index=True)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    ok: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    retrieved_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    duration_ms: Mapped[float | None] = mapped_column(Float)
+    content_bytes: Mapped[int | None] = mapped_column(Integer)
+    content_sha256: Mapped[str | None] = mapped_column(String(64), index=True)
+    rows: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
+
+
+class RawRecord(Base):
+    """An immutable, content-addressed copy of one upstream row."""
+
     __tablename__ = "raw_records"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id"), index=True)
-    batch_id: Mapped[str | None] = mapped_column(String(120), index=True)
-    content_type: Mapped[str] = mapped_column(String(120))
-    raw_data: Mapped[dict[str, Any] | None] = mapped_column(JSON_TYPE)
-    file_path: Mapped[str | None] = mapped_column(String(500))
-    checksum: Mapped[str] = mapped_column(String(64), index=True)
-    ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-
-    source: Mapped[DataSource] = relationship()
-
-
-class StagingRecord(TimestampMixin, Base):
-    __tablename__ = "staging_records"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    raw_record_id: Mapped[int] = mapped_column(ForeignKey("raw_records.id"), index=True)
-    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id"), index=True)
-    entity_type: Mapped[str] = mapped_column(String(120), index=True)
-    payload: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE)
-    record_hash: Mapped[str] = mapped_column(String(64), index=True)
-    status: Mapped[str] = mapped_column(String(40), default="pending", index=True)
-    suspension_reason: Mapped[str | None] = mapped_column(Text)
-    synthesis_run_id: Mapped[int | None] = mapped_column(ForeignKey("synthesis_runs.id"))
-
-    raw_record: Mapped[RawRecord] = relationship()
-    synthesis_run: Mapped[SynthesisRun] = relationship(back_populates="staging_records")
-
     __table_args__ = (
-        UniqueConstraint("raw_record_id", "record_hash", name="uq_staging_raw_hash"),
+        UniqueConstraint("source_id", "content_sha256", name="uq_raw_source_checksum"),
+        Index("ix_raw_source_period", "source_id", "period"),
     )
 
-
-class PendingSynthesis(TimestampMixin, Base):
-    __tablename__ = "pending_synthesis"
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    staging_record_id: Mapped[int] = mapped_column(ForeignKey("staging_records.id"), index=True)
-    required_entity_type: Mapped[str] = mapped_column(String(120))
-    required_key: Mapped[str] = mapped_column(String(120))
-    required_value: Mapped[str] = mapped_column(String(300))
-    status: Mapped[str] = mapped_column(String(40), default="waiting", index=True)
-    attempts: Mapped[int] = mapped_column(Integer, default=0)
-    last_error: Mapped[str | None] = mapped_column(Text)
+    source_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    dataset: Mapped[str | None] = mapped_column(String(200))
+    resource_id: Mapped[str | None] = mapped_column(String(120))
+    external_id: Mapped[str | None] = mapped_column(String(200), index=True)
 
-    staging_record: Mapped[StagingRecord] = relationship()
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period: Mapped[str | None] = mapped_column(String(7), index=True)  # YYYY-MM
+    synthesized: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
-class Agency(TimestampMixin, Base):
+class Agency(Base):
     __tablename__ = "agencies"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(300), nullable=False)
-    state: Mapped[str | None] = mapped_column(String(2))
-    jurisdiction: Mapped[str | None] = mapped_column(String(300))
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
+    id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    jurisdiction: Mapped[str | None] = mapped_column(String(255))
+    source_url: Mapped[str | None] = mapped_column(Text)
+
+    officers: Mapped[list[OfficerRef]] = relationship(back_populates="agency")
 
 
-class Officer(TimestampMixin, Base):
-    __tablename__ = "officers"
+class OfficerRef(Base):
+    """A law-enforcement employee as identified by the source itself.
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    agency_id: Mapped[int | None] = mapped_column(ForeignKey("agencies.id"), index=True)
-    first_name: Mapped[str | None] = mapped_column(String(120))
-    last_name: Mapped[str | None] = mapped_column(String(120))
-    badge_number: Mapped[str | None] = mapped_column(String(120), index=True)
-    employee_id: Mapped[str | None] = mapped_column(String(120), index=True)
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-    status: Mapped[str | None] = mapped_column(String(80))
+    Phoenix publishes ``UNIQUE_INCIDENT_OFFICER`` — a stable pseudonymous
+    employee identifier. This table stores that identifier verbatim. No
+    name, badge number or rank is ever invented: where the source does not
+    publish one, the column stays ``None``.
+    """
 
-    agency: Mapped[Agency] = relationship()
-
-
-class Person(TimestampMixin, Base):
-    __tablename__ = "persons"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    first_name: Mapped[str | None] = mapped_column(String(120))
-    last_name: Mapped[str | None] = mapped_column(String(120))
-    date_of_birth: Mapped[str | None] = mapped_column(String(40))
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-
-
-class Incident(TimestampMixin, Base):
-    __tablename__ = "incidents"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    agency_id: Mapped[int | None] = mapped_column(ForeignKey("agencies.id"), index=True)
-    incident_type: Mapped[str] = mapped_column(String(120), index=True)
-    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    location: Mapped[str | None] = mapped_column(String(500))
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-    data: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-
-    agency: Mapped[Agency] = relationship()
-
-
-class Complaint(TimestampMixin, Base):
-    __tablename__ = "complaints"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    agency_id: Mapped[int | None] = mapped_column(ForeignKey("agencies.id"), index=True)
-    complaint_type: Mapped[str] = mapped_column(String(120))
-    filed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    status: Mapped[str | None] = mapped_column(String(80))
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-
-    agency: Mapped[Agency] = relationship()
-
-
-class Arrest(TimestampMixin, Base):
-    __tablename__ = "arrests"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    incident_id: Mapped[int | None] = mapped_column(ForeignKey("incidents.id"), index=True)
-    person_id: Mapped[int | None] = mapped_column(ForeignKey("persons.id"), index=True)
-    arrested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    booking_number: Mapped[str | None] = mapped_column(String(120), index=True)
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-
-    incident: Mapped[Incident] = relationship()
-    person: Mapped[Person] = relationship()
-
-
-class Charge(TimestampMixin, Base):
-    __tablename__ = "charges"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    arrest_id: Mapped[int | None] = mapped_column(ForeignKey("arrests.id"), index=True)
-    statute: Mapped[str | None] = mapped_column(String(200))
-    description: Mapped[str | None] = mapped_column(Text)
-    severity: Mapped[str | None] = mapped_column(String(80))
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-
-    arrest: Mapped[Arrest] = relationship()
-
-
-class CourtCase(TimestampMixin, Base):
-    __tablename__ = "court_cases"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    case_number: Mapped[str] = mapped_column(String(200), index=True, unique=True)
-    court: Mapped[str | None] = mapped_column(String(200))
-    filed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    status: Mapped[str | None] = mapped_column(String(80))
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-
-
-class Document(TimestampMixin, Base):
-    __tablename__ = "documents"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    source_id: Mapped[str | None] = mapped_column(ForeignKey("data_sources.id"), index=True)
-    doc_type: Mapped[str] = mapped_column(String(120))
-    title: Mapped[str | None] = mapped_column(String(500))
-    file_path: Mapped[str | None] = mapped_column(String(500))
-    text: Mapped[str | None] = mapped_column(Text)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-
-    source: Mapped[DataSource] = relationship()
-
-
-class NewsArticle(TimestampMixin, Base):
-    __tablename__ = "news_articles"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    source_id: Mapped[str | None] = mapped_column(ForeignKey("data_sources.id"), index=True)
-    title: Mapped[str] = mapped_column(String(500))
-    url: Mapped[str] = mapped_column(String(1000), index=True)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    content: Mapped[str | None] = mapped_column(Text)
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-
-    source: Mapped[DataSource] = relationship()
-
-
-class SurveillanceEvent(TimestampMixin, Base):
-    __tablename__ = "surveillance_events"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    agency_id: Mapped[int | None] = mapped_column(ForeignKey("agencies.id"), index=True)
-    event_type: Mapped[str] = mapped_column(String(120))
-    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    location: Mapped[str | None] = mapped_column(String(500))
-    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSON_TYPE, default=dict)
-
-    agency: Mapped[Agency] = relationship()
-
-
-class InternalAffairsCase(TimestampMixin, Base):
-    __tablename__ = "internal_affairs_cases"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    agency_id: Mapped[int | None] = mapped_column(ForeignKey("agencies.id"), index=True)
-    officer_id: Mapped[int | None] = mapped_column(ForeignKey("officers.id"), index=True)
-    case_number: Mapped[str | None] = mapped_column(String(120), index=True)
-    status: Mapped[str | None] = mapped_column(String(80))
-    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-
-    agency: Mapped[Agency] = relationship()
-    officer: Mapped[Officer] = relationship()
-
-
-class MonitorReport(TimestampMixin, Base):
-    __tablename__ = "monitor_reports"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    agency_id: Mapped[int | None] = mapped_column(ForeignKey("agencies.id"), index=True)
-    period: Mapped[str | None] = mapped_column(String(120))
-    report_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    compliance_data: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
-    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"))
-
-    agency: Mapped[Agency] = relationship()
-    document: Mapped[Document] = relationship()
-
-
-class EntityLink(TimestampMixin, Base):
-    __tablename__ = "entity_links"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    source_entity: Mapped[str] = mapped_column(String(120))
-    source_id: Mapped[int] = mapped_column(Integer)
-    target_entity: Mapped[str] = mapped_column(String(120))
-    target_id: Mapped[int] = mapped_column(Integer)
-    relation_type: Mapped[str] = mapped_column(String(120))
-    confidence: Mapped[float] = mapped_column(Float, default=1.0)
-    join_key: Mapped[str | None] = mapped_column(String(200))
-    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSON_TYPE, default=dict)
-
+    __tablename__ = "officer_refs"
     __table_args__ = (
-        Index("ix_entity_links_source", "source_entity", "source_id"),
-        Index("ix_entity_links_target", "target_entity", "target_id"),
+        UniqueConstraint("agency_id", "external_key", name="uq_officer_agency_key"),
     )
 
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(120), ForeignKey("agencies.id"), nullable=False, index=True
+    )
+    external_key: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
 
-class SynthesisRun(TimestampMixin, Base):
-    __tablename__ = "synthesis_runs"
+    # Only ever populated from source fields that describe the employee.
+    gender: Mapped[str | None] = mapped_column(String(60))
+    race_group: Mapped[str | None] = mapped_column(String(120))
+    rank: Mapped[str | None] = mapped_column(String(120))
+    hire_year: Mapped[int | None] = mapped_column(Integer)
+
+    first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_url: Mapped[str | None] = mapped_column(Text)
+
+    agency: Mapped[Agency] = relationship(back_populates="officers")
+
+
+class Incident(Base):
+    """A use-of-force, shooting, show-of-force or gun-pointing event."""
+
+    __tablename__ = "incidents"
+    __table_args__ = (
+        UniqueConstraint("agency_id", "external_number", "kind", name="uq_incident_ext"),
+        Index("ix_incident_period_kind", "period", "kind"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    status: Mapped[str] = mapped_column(String(40), default="running")
-    stats: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
+    agency_id: Mapped[str] = mapped_column(
+        String(120), ForeignKey("agencies.id"), nullable=False, index=True
+    )
+    external_number: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    period: Mapped[str | None] = mapped_column(String(7), index=True)
 
-    staging_records: Mapped[list[StagingRecord]] = relationship(back_populates="synthesis_run")
+    # Use-of-force taxonomy — populated only from source columns.
+    force_level: Mapped[str | None] = mapped_column(String(120))
+    highest_force_applied: Mapped[str | None] = mapped_column(String(160))
+    armed_type: Mapped[str | None] = mapped_column(String(160))
+    resistance: Mapped[str | None] = mapped_column(String(160))
+    de_escalation: Mapped[str | None] = mapped_column(String(160))
+    injury: Mapped[str | None] = mapped_column(String(120))
+    highest_charge: Mapped[str | None] = mapped_column(String(200))
+    outcome: Mapped[str | None] = mapped_column(String(160))
+
+    subject_gender: Mapped[str | None] = mapped_column(String(60))
+    subject_race_group: Mapped[str | None] = mapped_column(String(120))
+    subject_age_group: Mapped[str | None] = mapped_column(String(60))
+
+    location: Mapped[str | None] = mapped_column(Text)
+    latitude: Mapped[float | None] = mapped_column(Float)
+    longitude: Mapped[float | None] = mapped_column(Float)
+    precinct: Mapped[str | None] = mapped_column(String(120))
+
+    # Provenance — mandatory.
+    source_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class ForceEvent(Base):
+    """The officer x incident edge carrying the accountability outcome."""
+
+    __tablename__ = "force_events"
+    __table_args__ = (
+        UniqueConstraint("officer_ref_id", "incident_id", name="uq_force_event"),
+        Index("ix_force_event_officer_period", "officer_ref_id", "period"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    officer_ref_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("officer_refs.id"), nullable=False, index=True
+    )
+    incident_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("incidents.id"), nullable=False, index=True
+    )
+    period: Mapped[str | None] = mapped_column(String(7), index=True)
+
+    # ``EMP_WITHIN_POLICY`` in Phoenix's data: Yes / No / Not Available.
+    within_policy: Mapped[str | None] = mapped_column(String(60), index=True)
+    bwc_activated: Mapped[str | None] = mapped_column(String(60))
+    force_applied: Mapped[str | None] = mapped_column(String(160))
+    force_level: Mapped[str | None] = mapped_column(String(120))
+    officers_on_scene: Mapped[int | None] = mapped_column(Integer)
+
+    source_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class Arrest(Base):
+    __tablename__ = "arrests"
+    __table_args__ = (Index("ix_arrest_period", "period"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(120), ForeignKey("agencies.id"), nullable=False, index=True
+    )
+    external_number: Mapped[str | None] = mapped_column(String(160), index=True)
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    period: Mapped[str | None] = mapped_column(String(7), index=True)
+
+    charge: Mapped[str | None] = mapped_column(String(255))
+    charge_code: Mapped[str | None] = mapped_column(String(120))
+    disposition: Mapped[str | None] = mapped_column(String(160))
+    subject_gender: Mapped[str | None] = mapped_column(String(60))
+    subject_race_group: Mapped[str | None] = mapped_column(String(120))
+    subject_age_group: Mapped[str | None] = mapped_column(String(60))
+    location: Mapped[str | None] = mapped_column(Text)
+    precinct: Mapped[str | None] = mapped_column(String(120))
+
+    officer_ref_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("officer_refs.id"), index=True
+    )
+
+    source_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class Complaint(Base):
+    """Internal-affairs complaint / reprimand / liability claim records."""
+
+    __tablename__ = "complaints"
+    __table_args__ = (Index("ix_complaint_period", "period"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agency_id: Mapped[str] = mapped_column(
+        String(120), ForeignKey("agencies.id"), nullable=False, index=True
+    )
+    external_number: Mapped[str | None] = mapped_column(String(160), index=True)
+    category: Mapped[str | None] = mapped_column(String(200))
+    allegation: Mapped[str | None] = mapped_column(Text)
+    finding: Mapped[str | None] = mapped_column(String(200))
+    discipline: Mapped[str | None] = mapped_column(String(200))
+    status: Mapped[str | None] = mapped_column(String(200))
+    amount_paid: Mapped[float | None] = mapped_column(Float)
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    period: Mapped[str | None] = mapped_column(String(7), index=True)
+
+    officer_ref_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("officer_refs.id"), index=True
+    )
+
+    source_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class NewsItem(Base):
+    """A news article retrieved from a live feed."""
+
+    __tablename__ = "news_items"
+    __table_args__ = (UniqueConstraint("url", name="uq_news_url"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    period: Mapped[str | None] = mapped_column(String(7), index=True)
+    summary: Mapped[str | None] = mapped_column(Text)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class EntityLink(Base):
+    """An explicit, evidenced join between two lattice entities."""
+
+    __tablename__ = "entity_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_type", "source_id", "target_type", "target_id", "relation",
+            name="uq_entity_link",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    source_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_type: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    target_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    relation: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
+    join_key: Mapped[str | None] = mapped_column(String(200))
+    confidence: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    period: Mapped[str | None] = mapped_column(String(7), index=True)
+    evidence: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class OfficerFinding(Base):
+    """One statistically derived, plain-language statement about one officer."""
+
+    __tablename__ = "officer_findings"
+    __table_args__ = (
+        UniqueConstraint(
+            "officer_ref_id", "period", "finding_type", "metric", name="uq_finding"
+        ),
+        Index("ix_finding_period_severity", "period", "severity"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    officer_ref_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("officer_refs.id"), nullable=False, index=True
+    )
+    agency_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    period: Mapped[str] = mapped_column(String(7), nullable=False, index=True)
+    window_start: Mapped[str | None] = mapped_column(String(10))
+    window_end: Mapped[str | None] = mapped_column(String(10))
+
+    finding_type: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    metric: Mapped[str] = mapped_column(String(80), nullable=False)
+    value: Mapped[float | None] = mapped_column(Float)
+    numerator: Mapped[int | None] = mapped_column(Integer)
+    denominator: Mapped[int | None] = mapped_column(Integer)
+    peer_value: Mapped[float | None] = mapped_column(Float)
+    peer_numerator: Mapped[int | None] = mapped_column(Integer)
+    peer_denominator: Mapped[int | None] = mapped_column(Integer)
+    peer_count: Mapped[int | None] = mapped_column(Integer)
+    robust_z: Mapped[float | None] = mapped_column(Float)
+    p_value: Mapped[float | None] = mapped_column(Float)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+
+    narrative: Mapped[str] = mapped_column(Text, nullable=False)
+    sources: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class PipelineRun(Base):
+    """Audit row for one Search->Gather->Organize->Process->Verify->Synthesize pass."""
+
+    __tablename__ = "pipeline_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    trigger: Mapped[str] = mapped_column(String(40), nullable=False)
+    ok: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    phases: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error: Mapped[str | None] = mapped_column(Text)
+
+
+class MonthlySnapshot(Base):
+    """One immutable, content-addressed archive of a whole month's lattice.
+
+    Sealing makes a month append-only history: once ``sealed_at`` is set the
+    row is never updated, and a later run for the same period writes a new
+    row with ``revision + 1`` and its own hash. Nothing is ever overwritten.
+    """
+
+    __tablename__ = "monthly_snapshots"
+    __table_args__ = (UniqueConstraint("period", "revision", name="uq_snapshot_rev"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    period: Mapped[str] = mapped_column(String(7), nullable=False, index=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    sealed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    counts: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+
+class LatticeMeta(Base):
+    """Single-row markers (schema version, last refresh)."""
+
+    __tablename__ = "lattice_meta"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

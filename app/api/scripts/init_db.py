@@ -1,13 +1,12 @@
+"""Create or migrate the lattice schema. Safe to run repeatedly."""
+
 from __future__ import annotations
 
-from app import models  # noqa: F401
-from app.db import init_database_with_retry
+import logging
 
+from app.db import ensure_schema_current
 
-def main() -> None:
-    init_database_with_retry()
-    print("Database schema verified and initialized.")
-
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 if __name__ == "__main__":
-    main()
+    ensure_schema_current()

@@ -1,1476 +1,937 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Police Lattice // Autonomous Accountability & Verification</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <style>
-        :root {
-            --bg-pitch: #000000;
-            --bg-surface: #06080f;
-            --bg-card: rgba(13, 17, 28, 0.65);
-            --bg-card-hover: rgba(22, 29, 46, 0.85);
-            --bg-glass: rgba(255, 255, 255, 0.03);
-            
-            --border-hairline: rgba(255, 255, 255, 0.08);
-            --border-glow: rgba(157, 78, 221, 0.5);
-            
-            --text-primary: #ffffff;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            
-            --neon-violet: #9d4edd;
-            --neon-purple: #7928ca;
-            --neon-cyan: #00f0ff;
-            --neon-blue: #0070f3;
-            --neon-emerald: #00dfd8;
-            --neon-green: #10b981;
-            --neon-amber: #f59e0b;
-            --neon-pink: #ff007a;
-            --neon-red: #ef4444;
-
-            --gradient-uv: linear-gradient(135deg, #7928ca 0%, #00f0ff 100%);
-            --gradient-neon-card: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
-            
-            --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
-            --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-            
-            --radius-xs: 6px;
-            --radius-sm: 10px;
-            --radius-md: 16px;
-            --radius-lg: 24px;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: var(--font-apple);
-            background-color: var(--bg-pitch);
-            color: var(--text-primary);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background-image: 
-                radial-gradient(circle at 10% 0%, rgba(121, 40, 202, 0.12) 0%, transparent 45%),
-                radial-gradient(circle at 90% 10%, rgba(0, 240, 255, 0.09) 0%, transparent 45%),
-                radial-gradient(circle at 50% 60%, rgba(0, 223, 216, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 80% 90%, rgba(255, 0, 122, 0.06) 0%, transparent 40%);
-            background-attachment: fixed;
-            -webkit-font-smoothing: antialiased;
-            letter-spacing: -0.011em;
-        }
-
-        /* HEADER */
-        header {
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(30px) saturate(180%);
-            -webkit-backdrop-filter: blur(30px) saturate(180%);
-            border-bottom: 1px solid var(--border-hairline);
-            padding: 1rem 2.5rem;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1.5rem;
-        }
-
-        .brand-cluster {
-            display: flex;
-            align-items: center;
-            gap: 1.1rem;
-        }
-
-        .brand-monogram {
-            width: 38px;
-            height: 38px;
-            border-radius: var(--radius-sm);
-            background: var(--gradient-uv);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 1.05rem;
-            color: #ffffff;
-            box-shadow: 0 0 25px rgba(157, 78, 221, 0.45);
-        }
-
-        .brand-text-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            color: #ffffff;
-        }
-
-        .brand-text-sub {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .header-meta {
-            display: flex;
-            align-items: center;
-            gap: 1.25rem;
-        }
-
-        .live-status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.35rem 0.9rem;
-            border-radius: 9999px;
-            font-size: 0.72rem;
-            font-weight: 600;
-            font-family: var(--font-mono);
-            background: rgba(0, 223, 216, 0.08);
-            color: var(--neon-emerald);
-            border: 1px solid rgba(0, 223, 216, 0.25);
-            box-shadow: 0 0 20px rgba(0, 223, 216, 0.15);
-        }
-
-        .live-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background-color: var(--neon-emerald);
-            box-shadow: 0 0 10px var(--neon-emerald);
-            animation: pulse-glow 2s infinite ease-in-out;
-        }
-
-        @keyframes pulse-glow {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.35; transform: scale(0.85); }
-        }
-
-        .nav-anchor {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.8125rem;
-            font-weight: 500;
-            transition: all 0.15s ease;
-        }
-
-        .nav-anchor:hover {
-            color: #ffffff;
-        }
-
-        /* MAIN CONTAINER */
-        main {
-            flex: 1;
-            padding: 2.5rem;
-            max-width: 1600px;
-            width: 100%;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        /* TELEMETRY KPI GRID */
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1.25rem;
-        }
-
-        .glass-kpi {
-            background: var(--bg-card);
-            backdrop-filter: blur(40px) saturate(180%);
-            -webkit-backdrop-filter: blur(40px) saturate(180%);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-md);
-            padding: 1.4rem 1.6rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .glass-kpi::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: var(--gradient-neon-card);
-            pointer-events: none;
-        }
-
-        .glass-kpi:hover {
-            transform: translateY(-3px);
-            border-color: rgba(157, 78, 221, 0.35);
-            box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.8), 0 0 25px rgba(121, 40, 202, 0.15);
-        }
-
-        .kpi-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .kpi-label {
-            font-size: 0.72rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: var(--text-secondary);
-        }
-
-        .kpi-number {
-            font-size: 2.35rem;
-            font-weight: 800;
-            color: #ffffff;
-            font-family: var(--font-apple);
-            letter-spacing: -0.04em;
-            line-height: 1;
-        }
-
-        .kpi-caption {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        /* COMMAND BAR */
-        .command-strip {
-            background: var(--bg-card);
-            backdrop-filter: blur(40px);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-md);
-            padding: 1.25rem 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1.25rem;
-        }
-
-        .cmd-heading {
-            font-size: 1.05rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-
-        .cmd-subtext {
-            font-size: 0.8125rem;
-            color: var(--text-secondary);
-            margin-top: 0.2rem;
-        }
-
-        .cmd-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-        }
-
-        .btn-apple {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            padding: 0.7rem 1.4rem;
-            border-radius: var(--radius-sm);
-            font-size: 0.8125rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            border: 1px solid transparent;
-            font-family: var(--font-apple);
-        }
-
-        .btn-glow {
-            background: var(--gradient-uv);
-            color: #ffffff;
-            box-shadow: 0 4px 20px rgba(121, 40, 202, 0.4);
-        }
-
-        .btn-glow:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 28px rgba(121, 40, 202, 0.6);
-            opacity: 0.95;
-        }
-
-        .btn-glass {
-            background: rgba(255, 255, 255, 0.05);
-            color: #ffffff;
-            border: 1px solid var(--border-hairline);
-        }
-
-        .btn-glass:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.18);
-            transform: translateY(-1px);
-        }
-
-        /* VISUAL ANALYTICS GRID */
-        .analytics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .chart-panel {
-            background: var(--bg-card);
-            backdrop-filter: blur(40px);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-md);
-            padding: 1.6rem 1.8rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-            position: relative;
-        }
-
-        .chart-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .chart-headline {
-            font-size: 0.95rem;
-            font-weight: 700;
-            letter-spacing: -0.015em;
-        }
-
-        .chart-badge {
-            font-size: 0.68rem;
-            font-weight: 700;
-            font-family: var(--font-mono);
-            padding: 0.25rem 0.55rem;
-            border-radius: var(--radius-xs);
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-secondary);
-            border: 1px solid var(--border-hairline);
-        }
-
-        .chart-container-box {
-            position: relative;
-            height: 240px;
-            width: 100%;
-        }
-
-        /* NAVIGATION TABS */
-        .explorer-tabs {
-            display: flex;
-            border-bottom: 1px solid var(--border-hairline);
-            gap: 0.5rem;
-            overflow-x: auto;
-            scrollbar-width: none;
-        }
-
-        .tab-item {
-            padding: 0.85rem 1.4rem;
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-            font-family: var(--font-apple);
-        }
-
-        .tab-item:hover {
-            color: #ffffff;
-        }
-
-        .tab-item.active {
-            color: var(--neon-cyan);
-            border-bottom-color: var(--neon-cyan);
-        }
-
-        .explorer-view {
-            display: none;
-        }
-
-        .explorer-view.active {
-            display: block;
-        }
-
-        /* DATA TABLES */
-        .glass-table-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(40px);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-md);
-            overflow: hidden;
-        }
-
-        .table-bar {
-            padding: 1.25rem 1.75rem;
-            border-bottom: 1px solid var(--border-hairline);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .table-bar-title {
-            font-size: 1.05rem;
-            font-weight: 700;
-            letter-spacing: -0.015em;
-        }
-
-        .table-search {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-sm);
-            padding: 0.6rem 1.1rem;
-            color: #ffffff;
-            font-size: 0.8125rem;
-            outline: none;
-            width: 320px;
-            font-family: var(--font-apple);
-            transition: all 0.2s ease;
-        }
-
-        .table-search:focus {
-            border-color: var(--neon-cyan);
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
-        }
-
-        .table-scroll {
-            overflow-x: auto;
-            max-height: 620px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            font-size: 0.8125rem;
-        }
-
-        th {
-            background: rgba(6, 8, 15, 0.95);
-            backdrop-filter: blur(10px);
-            color: var(--text-muted);
-            padding: 0.9rem 1.35rem;
-            font-weight: 700;
-            border-bottom: 1px solid var(--border-hairline);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            text-transform: uppercase;
-            letter-spacing: 0.07em;
-            font-size: 0.7rem;
-        }
-
-        td {
-            padding: 1rem 1.35rem;
-            border-bottom: 1px solid var(--border-hairline);
-            color: var(--text-primary);
-            vertical-align: middle;
-        }
-
-        tr {
-            transition: background-color 0.15s ease;
-        }
-
-        tr:hover td {
-            background-color: rgba(255, 255, 255, 0.035);
-        }
-
-        /* PILL BADGES */
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            padding: 0.25rem 0.65rem;
-            border-radius: 9999px;
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-        }
-
-        .pill-violet { background: rgba(157, 78, 221, 0.15); color: #c4b5fd; border: 1px solid rgba(157, 78, 221, 0.3); }
-        .pill-cyan { background: rgba(0, 240, 255, 0.12); color: var(--neon-cyan); border: 1px solid rgba(0, 240, 255, 0.3); }
-        .pill-emerald { background: rgba(0, 223, 216, 0.12); color: var(--neon-emerald); border: 1px solid rgba(0, 223, 216, 0.3); }
-        .pill-pink { background: rgba(255, 0, 122, 0.12); color: #f472b6; border: 1px solid rgba(255, 0, 122, 0.3); }
-        .pill-amber { background: rgba(245, 158, 11, 0.12); color: var(--neon-amber); border: 1px solid rgba(245, 158, 11, 0.3); }
-        
-        .code-cell {
-            font-family: var(--font-mono);
-            font-size: 0.78rem;
-            color: #cbd5e1;
-        }
-
-        .btn-inspect {
-            padding: 0.35rem 0.75rem;
-            border-radius: var(--radius-xs);
-            font-size: 0.72rem;
-            font-weight: 600;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid var(--border-hairline);
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-
-        .btn-inspect:hover {
-            background: rgba(0, 240, 255, 0.15);
-            color: #ffffff;
-            border-color: var(--neon-cyan);
-        }
-
-        /* PROVENANCE INSPECTOR MODAL */
-        .modal-backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(20px);
-            z-index: 3000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
-        }
-
-        .inspector-window {
-            background: rgba(13, 17, 28, 0.95);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-lg);
-            width: 100%;
-            max-width: 800px;
-            max-height: 85vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(121, 40, 202, 0.25);
-        }
-
-        .inspector-header {
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border-hairline);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .inspector-title {
-            font-size: 1.15rem;
-            font-weight: 700;
-        }
-
-        .inspector-body {
-            padding: 2rem;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .inspector-section-title {
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-        }
-
-        .provenance-card {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-sm);
-            padding: 1rem 1.25rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-        }
-
-        .provenance-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8125rem;
-        }
-
-        .provenance-label {
-            color: var(--text-muted);
-        }
-
-        .provenance-value {
-            font-weight: 600;
-            color: #ffffff;
-            font-family: var(--font-mono);
-        }
-
-        .raw-json-box {
-            background: rgba(0, 0, 0, 0.7);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-sm);
-            padding: 1rem;
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            color: #a5f3fc;
-            max-height: 220px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-
-        .toast-bubble {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: rgba(13, 17, 28, 0.95);
-            backdrop-filter: blur(25px);
-            border: 1px solid var(--neon-cyan);
-            padding: 1rem 1.75rem;
-            border-radius: var(--radius-md);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 240, 255, 0.3);
-            display: none;
-            z-index: 4000;
-            font-size: 0.875rem;
-            font-weight: 600;
-        }
-
-        @media (max-width: 900px) {
-            header { padding: 1rem; }
-            main { padding: 1rem; }
-            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-            .analytics-grid { grid-template-columns: 1fr; }
-            .table-search { width: 100%; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Police Lattice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,300..800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --void:#000000;
+  --gloss-1:rgba(255,255,255,.055);
+  --gloss-2:rgba(255,255,255,.022);
+  --panel:rgba(255,255,255,.03);
+  --hair:rgba(255,255,255,.09);
+  --hair-strong:rgba(255,255,255,.16);
+  --ink:#ffffff;
+  --ink-2:#a8b0bd;
+  --ink-3:#6b7482;
+  --n-cyan:#00e5ff;
+  --n-violet:#b026ff;
+  --n-green:#39ff14;
+  --n-pink:#ff2e63;
+  --n-yellow:#ffe600;
+  --n-orange:#ff7a00;
+  --n-blue:#2f7bff;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --row-h:38px;
+  --panel-h:340px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--void);
+  color:var(--ink);
+  font-family:"Inter",system-ui,-apple-system,sans-serif;
+  font-size:13px;
+  letter-spacing:-.011em;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+/* Heavy gloss field: fixed so nothing repaints on data change. */
+body::before{
+  content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(900px 520px at 8% -6%, rgba(176,38,255,.20), transparent 62%),
+    radial-gradient(760px 460px at 96% 2%, rgba(0,229,255,.16), transparent 60%),
+    radial-gradient(1000px 620px at 50% 108%, rgba(255,46,99,.12), transparent 62%),
+    linear-gradient(180deg,#000 0%,#000 100%);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background:linear-gradient(180deg,rgba(255,255,255,.05) 0%,transparent 22%);
+}
+::selection{background:var(--n-violet);color:#000}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:#000}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:9px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.26)}
+
+/* ---------- chrome ---------- */
+header{
+  position:sticky;top:0;z-index:60;
+  display:flex;align-items:center;gap:20px;
+  padding:0 22px;height:56px;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:blur(26px) saturate(180%);
+  -webkit-backdrop-filter:blur(26px) saturate(180%);
+  border-bottom:1px solid var(--hair);
+}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.mark{
+  width:28px;height:28px;border-radius:7px;flex:0 0 28px;
+  background:conic-gradient(from 210deg,var(--n-violet),var(--n-cyan),var(--n-green),var(--n-violet));
+  display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;font-weight:700;color:#000;
+  box-shadow:0 0 22px rgba(176,38,255,.5);
+}
+.brand h1{font-size:14px;font-weight:700;font-style:italic;letter-spacing:-.03em;white-space:nowrap}
+.brand span{font-size:10.5px;color:var(--ink-3);font-style:italic;letter-spacing:.02em}
+.spacer{flex:1}
+.hstat{
+  display:flex;align-items:center;gap:7px;
+  font-family:var(--mono);font-size:10.5px;color:var(--ink-2);
+  padding:5px 10px;border:1px solid var(--hair);border-radius:999px;
+  background:var(--gloss-2);white-space:nowrap;
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--n-green);box-shadow:0 0 9px var(--n-green);flex:0 0 6px}
+.dot.bad{background:var(--n-pink);box-shadow:0 0 9px var(--n-pink)}
+.dot.idle{background:var(--ink-3);box-shadow:none}
+select,input[type=text]{
+  background:rgba(255,255,255,.045);
+  border:1px solid var(--hair);border-radius:8px;
+  color:var(--ink);font-family:var(--mono);font-size:11.5px;
+  padding:7px 10px;outline:none;
+}
+select:focus,input[type=text]:focus{border-color:var(--n-cyan);box-shadow:0 0 0 3px rgba(0,229,255,.14)}
+select option{background:#0a0a0a;color:#fff}
+button{
+  font-family:"Inter",sans-serif;font-size:11.5px;font-weight:600;font-style:italic;
+  letter-spacing:-.01em;cursor:pointer;
+  background:rgba(255,255,255,.06);color:var(--ink);
+  border:1px solid var(--hair);border-radius:8px;padding:8px 14px;
+  transition:background .14s,border-color .14s,box-shadow .14s;
+}
+button:hover{background:rgba(255,255,255,.12);border-color:var(--hair-strong)}
+button.primary{
+  background:linear-gradient(135deg,var(--n-violet),var(--n-cyan));
+  color:#000;border-color:transparent;font-weight:800;
+  box-shadow:0 4px 20px rgba(176,38,255,.4);
+}
+button.primary:hover{box-shadow:0 6px 28px rgba(0,229,255,.5)}
+button:disabled{opacity:.45;cursor:not-allowed}
+
+nav{
+  position:sticky;top:56px;z-index:55;
+  display:flex;gap:2px;padding:0 16px;
+  background:rgba(0,0,0,.82);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--hair);overflow-x:auto;
+}
+nav button{
+  background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
+  padding:11px 14px;color:var(--ink-3);font-style:italic;font-weight:600;white-space:nowrap;
+}
+nav button:hover{color:var(--ink-2);background:none}
+nav button.on{color:var(--ink);border-bottom-color:var(--n-cyan);box-shadow:0 6px 18px -12px var(--n-cyan)}
+nav button .ct{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);margin-left:6px}
+
+main{padding:18px;max-width:1780px;margin:0 auto}
+.view{display:none}
+.view.on{display:block}
+
+/* ---------- panels ---------- */
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(6,minmax(0,1fr));margin-bottom:14px}
+.charts{grid-template-columns:repeat(2,minmax(0,1fr))}
+.panel{
+  position:relative;
+  background:linear-gradient(180deg,var(--gloss-1),var(--gloss-2));
+  border:1px solid var(--hair);border-radius:14px;
+  padding:15px 16px;overflow:hidden;
+}
+.panel::before{
+  content:"";position:absolute;inset:0 0 auto 0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);
+}
+.panel-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.panel-h h2{font-size:12.5px;font-weight:700;font-style:italic;letter-spacing:-.015em}
+.panel-h .tag{font-family:var(--mono);font-size:9.5px;color:var(--ink-3);letter-spacing:.06em;text-transform:uppercase}
+
+.kpi .k{font-size:10px;color:var(--ink-3);font-style:italic;letter-spacing:.04em;text-transform:uppercase}
+.kpi .v{font-family:var(--mono);font-size:27px;font-weight:700;line-height:1.15;letter-spacing:-.04em}
+.kpi .s{font-family:var(--mono);font-size:10px;color:var(--ink-3)}
+.kpi{min-height:104px;display:flex;flex-direction:column;justify-content:center;gap:3px}
+
+/* charts: fixed heights so month switching cannot shift layout */
+.chart-box{position:relative;height:var(--panel-h);width:100%}
+.chart-box.tall{height:420px}
+.legend-note{font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-top:8px}
+
+/* ---------- tables ---------- */
+.table-wrap{border:1px solid var(--hair);border-radius:14px;overflow:hidden;background:var(--gloss-2)}
+.table-bar{display:flex;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+.table-bar h2{font-size:12.5px;font-style:italic;font-weight:700}
+.table-bar .tag{font-family:var(--mono);font-size:9.5px;color:var(--ink-3)}
+.table-bar input{flex:1;min-width:180px}
+.scroller{max-height:640px;overflow:auto}
+table{width:100%;border-collapse:collapse}
+thead th{
+  position:sticky;top:0;z-index:2;
+  background:#050505;
+  text-align:left;padding:9px 11px;
+  font-size:9.5px;font-weight:700;font-style:italic;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--ink-3);border-bottom:1px solid var(--hair);white-space:nowrap;
+}
+tbody td{
+  padding:8px 11px;height:var(--row-h);
+  border-bottom:1px solid rgba(255,255,255,.05);
+  font-size:12px;vertical-align:middle;color:var(--ink-2);
+}
+tbody tr:hover td{background:rgba(255,255,255,.035)}
+td.num,th.num{font-family:var(--mono);text-align:right}
+td.mono{font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+td b{color:var(--ink);font-weight:600}
+.nil{color:#4a525e;font-family:var(--mono);font-size:11px}
+a{color:var(--n-cyan);text-decoration:none}
+a:hover{text-decoration:underline}
+.pill{
+  display:inline-block;font-family:var(--mono);font-size:10px;
+  padding:2.5px 7px;border-radius:5px;border:1px solid;white-space:nowrap;
+}
+.p-cyan{color:var(--n-cyan);border-color:rgba(0,229,255,.4);background:rgba(0,229,255,.1)}
+.p-violet{color:#d58bff;border-color:rgba(176,38,255,.4);background:rgba(176,38,255,.12)}
+.p-green{color:var(--n-green);border-color:rgba(57,255,20,.35);background:rgba(57,255,20,.09)}
+.p-pink{color:var(--n-pink);border-color:rgba(255,46,99,.4);background:rgba(255,46,99,.12)}
+.p-yellow{color:var(--n-yellow);border-color:rgba(255,230,0,.35);background:rgba(255,230,0,.09)}
+.p-grey{color:var(--ink-3);border-color:var(--hair);background:rgba(255,255,255,.04)}
+
+.empty{padding:44px 20px;text-align:center;color:var(--ink-3);font-size:12.5px;line-height:1.7}
+.empty code{font-family:var(--mono);color:var(--n-yellow);font-size:11.5px}
+.note{
+  border:1px solid rgba(255,230,0,.25);background:rgba(255,230,0,.06);
+  border-radius:12px;padding:13px 15px;font-size:12px;color:#e8dd9a;line-height:1.65;margin-bottom:14px;
+}
+.note code{font-family:var(--mono);font-size:11px;color:var(--n-yellow)}
+
+/* findings */
+.findings{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:12px}
+.finding{border:1px solid var(--hair);border-radius:13px;padding:13px 15px;background:var(--gloss-2)}
+.finding.high{border-color:rgba(255,46,99,.45);box-shadow:inset 0 0 0 1px rgba(255,46,99,.1)}
+.finding.elevated{border-color:rgba(255,122,0,.4)}
+.finding .fh{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.finding .who{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--ink)}
+.finding p{font-size:12.3px;line-height:1.68;color:var(--ink-2)}
+.finding .stats{display:flex;gap:14px;margin-top:9px;flex-wrap:wrap}
+.finding .stats div{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+.finding .stats b{color:var(--ink);font-weight:600}
+.finding .src{margin-top:9px;font-family:var(--mono);font-size:10px;word-break:break-all}
+
+.split{display:grid;grid-template-columns:1.55fr 1fr;gap:14px;align-items:start}
+.detail{border:1px solid var(--hair);border-radius:14px;padding:15px;background:var(--gloss-2);position:sticky;top:112px;max-height:calc(100vh - 140px);overflow:auto}
+.kv{display:grid;grid-template-columns:132px 1fr;gap:5px 12px;font-size:12px}
+.kv dt{color:var(--ink-3);font-size:10.5px;font-style:italic;text-transform:uppercase;letter-spacing:.05em}
+.kv dd{color:var(--ink);font-family:var(--mono);font-size:11.5px;word-break:break-word}
+pre{
+  background:#000;border:1px solid var(--hair);border-radius:10px;
+  padding:11px;font-family:var(--mono);font-size:10.5px;color:#9fe9f5;
+  overflow:auto;max-height:330px;white-space:pre-wrap;word-break:break-word;margin-top:10px;
+}
+footer{padding:26px 18px 44px;text-align:center;color:#39414d;font-size:11px;font-style:italic}
+footer code{font-family:var(--mono);color:var(--ink-3)}
+@media (max-width:1180px){
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .charts,.split{grid-template-columns:1fr}
+  .detail{position:static;max-height:none}
+}
+@media (max-width:680px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
 </head>
 <body>
-    <header>
-        <div class="brand-cluster">
-            <div class="brand-monogram">PL</div>
-            <div>
-                <div class="brand-text-title">Police Lattice</div>
-                <div class="brand-text-sub">Autonomous Accountability Synthesis & Verification</div>
-            </div>
-        </div>
-        <div class="header-meta">
-            <div class="live-status-pill">
-                <div class="live-dot"></div>
-                <span>CORE ACTIVE · 68 SOURCES</span>
-            </div>
-            <a href="/docs" class="nav-anchor" target="_blank">Swagger API</a>
-            <a href="/health" class="nav-anchor" target="_blank">Health</a>
-            <a href="/sources" class="nav-anchor" target="_blank">Sources</a>
-        </div>
-    </header>
 
-    <main>
-        <!-- METRICS TELEMETRY GRID -->
-        <div class="kpi-grid">
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Sources Catalog</span>
-                    <span class="pill pill-violet">68 FEEDS</span>
-                </div>
-                <div class="kpi-number" id="kpi-sources">68</div>
-                <div class="kpi-caption">12 Autonomous Ingestion Adapters</div>
-            </div>
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Staging Telemetry</span>
-                    <span class="pill pill-cyan">ACTIVE</span>
-                </div>
-                <div class="kpi-number" id="kpi-staging">0</div>
-                <div class="kpi-caption">Raw Canonical Records</div>
-            </div>
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Incidents Synthesized</span>
-                    <span class="pill pill-emerald">VERIFIED</span>
-                </div>
-                <div class="kpi-number" id="kpi-incidents">0</div>
-                <div class="kpi-caption">Fatalities, UOF & Encounters</div>
-            </div>
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Personnel Recorded</span>
-                    <span class="pill pill-emerald">ROSTER</span>
-                </div>
-                <div class="kpi-number" id="kpi-officers">0</div>
-                <div class="kpi-caption">Officers with Badge & ID</div>
-            </div>
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Arrests & Charges</span>
-                    <span class="pill pill-amber">A.R.S. ENRICHED</span>
-                </div>
-                <div class="kpi-number" id="kpi-arrests">0</div>
-                <div class="kpi-caption">Statutory Violations & Bookings</div>
-            </div>
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Relational Links</span>
-                    <span class="pill pill-cyan">GRAPH EDGES</span>
-                </div>
-                <div class="kpi-number" id="kpi-links">0</div>
-                <div class="kpi-caption">Cross-System Topological Edges</div>
-            </div>
-        </div>
-
-        <!-- COMMAND BAR -->
-        <div class="command-strip">
-            <div>
-                <div class="cmd-heading">Autonomous Lattice Command Center</div>
-                <div class="cmd-subtext">Execute continuous ingestion, canonical normalization, evidence extraction, and graph synthesis</div>
-            </div>
-            <div class="cmd-actions">
-                <button class="btn-apple btn-glow" onclick="executeFullPipeline()">
-                    ⚡ Run Full Pipeline (End-to-End)
-                </button>
-                <button class="btn-apple btn-glass" onclick="triggerAction('/ingest/run', 'Ingestion completed')">
-                    Ingest Feeds
-                </button>
-                <button class="btn-apple btn-glass" onclick="triggerAction('/synthesis/run', 'Synthesis completed')">
-                    Synthesize
-                </button>
-                <button class="btn-apple btn-glass" onclick="triggerAction('/resolve/pending', 'Dependencies resolved')">
-                    Resolve
-                </button>
-                <button class="btn-apple btn-glass" onclick="refreshDashboardData()">
-                    ↻ Refresh
-                </button>
-            </div>
-        </div>
-
-        <!-- HIGH-CONTRAST ULTRAVIOLET NEON CHARTS -->
-        <div class="analytics-grid">
-            <div class="chart-panel">
-                <div class="chart-header">
-                    <div class="chart-headline">Temporal Incident Velocity & Fatality Timeline</div>
-                    <span class="chart-badge">MONTHLY TREND</span>
-                </div>
-                <div class="chart-container-box">
-                    <canvas id="canvas-timeline"></canvas>
-                </div>
-            </div>
-            <div class="chart-panel">
-                <div class="chart-header">
-                    <div class="chart-headline">Use of Force & Tactical Intervention Taxonomy</div>
-                    <span class="chart-badge">FORCE BREAKDOWN</span>
-                </div>
-                <div class="chart-container-box">
-                    <canvas id="canvas-taxonomy"></canvas>
-                </div>
-            </div>
-            <div class="chart-panel">
-                <div class="chart-header">
-                    <div class="chart-headline">Agency Accountability & Jurisdictional Distribution</div>
-                    <span class="chart-badge">AGENCIES</span>
-                </div>
-                <div class="chart-container-box">
-                    <canvas id="canvas-agencies"></canvas>
-                </div>
-            </div>
-            <div class="chart-panel">
-                <div class="chart-header">
-                    <div class="chart-headline">Relational Graph Edge Connectivity Distribution</div>
-                    <span class="chart-badge">TOPOLOGY</span>
-                </div>
-                <div class="chart-container-box">
-                    <canvas id="canvas-topology"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- DATA EXPLORER TABS -->
-        <div>
-            <div class="explorer-tabs">
-                <button class="tab-item active" onclick="switchTab('tab-incidents')">Incidents & Fatalities</button>
-                <button class="tab-item" onclick="switchTab('tab-officers')">Law Enforcement Personnel</button>
-                <button class="tab-item" onclick="switchTab('tab-links')">Topological Entity Links</button>
-                <button class="tab-item" onclick="switchTab('tab-sources')">Sources Catalog (68 Feeds)</button>
-                <button class="tab-item" onclick="switchTab('tab-suspended')">Suspended Staging</button>
-            </div>
-
-            <!-- TAB: INCIDENTS -->
-            <div id="tab-incidents" class="explorer-view active">
-                <div class="glass-table-card">
-                    <div class="table-bar">
-                        <div class="table-bar-title">Synthesized Incidents & Fatal Encounters</div>
-                        <input type="text" id="search-incidents" class="table-search" placeholder="Filter by type, location, victim, agency..." onkeyup="filterIncidents()">
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Incident Type</th>
-                                    <th>Date / Time (UTC)</th>
-                                    <th>Location</th>
-                                    <th>Agency</th>
-                                    <th>Subject / Victim</th>
-                                    <th>Officers Involved</th>
-                                    <th>Provenance</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rows-incidents">
-                                <tr><td colspan="8" style="text-align:center; padding:3rem; color:var(--text-muted);">Loading incidents telemetry...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: OFFICERS -->
-            <div id="tab-officers" class="explorer-view">
-                <div class="glass-table-card">
-                    <div class="table-bar">
-                        <div class="table-bar-title">Law Enforcement Personnel Roster</div>
-                        <input type="text" id="search-officers" class="table-search" placeholder="Filter by badge, employee ID, name, rank, notes..." onkeyup="filterOfficers()">
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Badge #</th>
-                                    <th>Employee ID</th>
-                                    <th>Officer Name</th>
-                                    <th>Rank</th>
-                                    <th>Agency</th>
-                                    <th>Status / Disciplinary Note</th>
-                                    <th>Linked Incidents</th>
-                                    <th>Provenance</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rows-officers">
-                                <tr><td colspan="9" style="text-align:center; padding:3rem; color:var(--text-muted);">Loading personnel roster...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: LINKS -->
-            <div id="tab-links" class="explorer-view">
-                <div class="glass-table-card">
-                    <div class="table-bar">
-                        <div class="table-bar-title">Topological Lattice Entity Links</div>
-                        <input type="text" id="search-links" class="table-search" placeholder="Filter by entity, relation type, join key..." onkeyup="filterLinks()">
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Source Entity</th>
-                                    <th>Relationship Type</th>
-                                    <th>Target Entity</th>
-                                    <th>Explicit Join Key</th>
-                                    <th>Confidence</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rows-links">
-                                <tr><td colspan="6" style="text-align:center; padding:3rem; color:var(--text-muted);">Loading graph topology...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: SOURCES -->
-            <div id="tab-sources" class="explorer-view">
-                <div class="glass-table-card">
-                    <div class="table-bar">
-                        <div class="table-bar-title">Sources Catalog Registry (68 Feeds)</div>
-                        <input type="text" id="search-sources" class="table-search" placeholder="Search catalog sources..." onkeyup="filterSources()">
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Source ID</th>
-                                    <th>Source Name</th>
-                                    <th>Category</th>
-                                    <th>Adapter</th>
-                                    <th>Access Mode</th>
-                                    <th>Schedule</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rows-sources">
-                                <tr><td colspan="6" style="text-align:center; padding:3rem; color:var(--text-muted);">Loading sources catalog...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: SUSPENDED -->
-            <div id="tab-suspended" class="explorer-view">
-                <div class="glass-table-card">
-                    <div class="table-bar">
-                        <div class="table-bar-title">Suspended Staging Records</div>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Source ID</th>
-                                    <th>Entity Type</th>
-                                    <th>Suspension Reason</th>
-                                    <th>Record Hash</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rows-suspended">
-                                <tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--neon-emerald);">✓ All dependencies satisfied. 0 suspended staging records.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- PROVENANCE INSPECTOR MODAL -->
-    <div id="modal-inspector" class="modal-backdrop" onclick="closeInspector(event)">
-        <div class="inspector-window" onclick="event.stopPropagation()">
-            <div class="inspector-header">
-                <div class="inspector-title" id="insp-title">Entity Provenance & Verification</div>
-                <button class="btn-inspect" onclick="closeInspectorDirect()">Close</button>
-            </div>
-            <div class="inspector-body">
-                <div>
-                    <div class="inspector-section-title">Chain of Custody & Audit Fingerprint</div>
-                    <div class="provenance-card">
-                        <div class="provenance-row">
-                            <span class="provenance-label">Original Catalog Source:</span>
-                            <span class="provenance-value" id="insp-source-id">-</span>
-                        </div>
-                        <div class="provenance-row">
-                            <span class="provenance-label">External Canonical Identifier:</span>
-                            <span class="provenance-value" id="insp-ext-id">-</span>
-                        </div>
-                        <div class="provenance-row">
-                            <span class="provenance-label">Record Checksum / Hash:</span>
-                            <span class="provenance-value" id="insp-hash">-</span>
-                        </div>
-                        <div class="provenance-row">
-                            <span class="provenance-label">Verification Confidence Score:</span>
-                            <span class="provenance-value" id="insp-confidence" style="color:var(--neon-emerald);">100% Verified</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="inspector-section-title">Extracted Evidence Snippets</div>
-                    <div class="provenance-card" id="insp-evidence-card">
-                        <div style="color:var(--text-muted); font-size:0.8125rem;">No direct evidence quotes attached.</div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="inspector-section-title">Underlying Canonical Payload (JSON)</div>
-                    <pre class="raw-json-box" id="insp-raw-json">{}</pre>
-                </div>
-            </div>
-        </div>
+<header>
+  <div class="brand">
+    <div class="mark">PL</div>
+    <div>
+      <h1>Police Lattice</h1>
+      <span>public accountability records · verified &amp; cited</span>
     </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="hstat"><span class="dot idle" id="net-dot"></span><span id="net-text">checking sources…</span></div>
+  <div class="hstat" id="run-stat">no run yet</div>
+  <select id="period" title="Reporting period"></select>
+  <button id="btn-run" class="primary">Run pipeline</button>
+</header>
 
-    <!-- TOAST NOTIFICATION -->
-    <div id="toast" class="toast-bubble"></div>
+<nav id="tabs">
+  <button data-view="overview" class="on">Overview</button>
+  <button data-view="findings">Anomaly findings<span class="ct" id="ct-findings">0</span></button>
+  <button data-view="officers">Officers<span class="ct" id="ct-officers">0</span></button>
+  <button data-view="incidents">Incidents<span class="ct" id="ct-incidents">0</span></button>
+  <button data-view="arrests">Arrests<span class="ct" id="ct-arrests">0</span></button>
+  <button data-view="complaints">Complaints<span class="ct" id="ct-complaints">0</span></button>
+  <button data-view="news">News<span class="ct" id="ct-news">0</span></button>
+  <button data-view="sources">Sources<span class="ct" id="ct-sources">0</span></button>
+  <button data-view="archive">Archive</button>
+  <button data-view="search">Search</button>
+</nav>
 
-    <script>
-        let cachedSources = [];
-        let cachedIncidents = [];
-        let cachedOfficers = [];
-        let cachedLinks = [];
-        
-        let chartTimeline = null;
-        let chartTaxonomy = null;
-        let chartAgencies = null;
-        let chartTopology = null;
+<main>
+  <div id="reachability" class="note" style="display:none"></div>
 
-        function showToast(msg, isError = false) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.style.borderColor = isError ? 'var(--neon-red)' : 'var(--neon-cyan)';
-            toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 4500);
-        }
+  <!-- OVERVIEW -->
+  <section class="view on" id="v-overview">
+    <div class="grid kpis" id="kpis"></div>
+    <div class="grid charts" style="margin-bottom:14px">
+      <div class="panel">
+        <div class="panel-h"><h2>Highest force applied</h2><span class="tag" id="t-force">—</span></div>
+        <div class="chart-box"><canvas id="c-force"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h2>Policy outcome per officer record</h2><span class="tag" id="t-policy">—</span></div>
+        <div class="chart-box"><canvas id="c-policy"></canvas></div>
+      </div>
+    </div>
+    <div class="grid charts" style="margin-bottom:14px">
+      <div class="panel">
+        <div class="panel-h"><h2>Monthly volume</h2><span class="tag" id="t-timeline">—</span></div>
+        <div class="chart-box"><canvas id="c-timeline"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h2>Arrest charges</h2><span class="tag" id="t-charges">—</span></div>
+        <div class="chart-box"><canvas id="c-charges"></canvas></div>
+      </div>
+    </div>
+    <div class="grid charts">
+      <div class="panel">
+        <div class="panel-h"><h2>Weapon type recorded</h2><span class="tag" id="t-armed">—</span></div>
+        <div class="chart-box"><canvas id="c-armed"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h2>Agencies</h2><span class="tag" id="t-agency">—</span></div>
+        <div class="chart-box"><canvas id="c-agency"></canvas></div>
+      </div>
+    </div>
+  </section>
 
-        function switchTab(tabId) {
-            document.querySelectorAll('.explorer-view').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            const btn = Array.from(document.querySelectorAll('.tab-item')).find(b => b.getAttribute('onclick').includes(tabId));
-            if (btn) btn.classList.add('active');
-        }
+  <!-- FINDINGS -->
+  <section class="view" id="v-findings">
+    <div class="table-bar" style="border:1px solid var(--hair);border-radius:14px;margin-bottom:12px">
+      <h2>Officer anomaly findings</h2>
+      <span class="tag" id="findings-meta">—</span>
+      <div class="spacer" style="flex:1"></div>
+      <select id="sev-filter">
+        <option value="">all severities</option>
+        <option value="high">high</option>
+        <option value="elevated">elevated</option>
+      </select>
+    </div>
+    <div class="findings" id="findings-list"></div>
+  </section>
 
-        async function executeFullPipeline() {
-            showToast('⚡ Executing Ingestion, Canonical Normalization, Evidence Extraction & Synthesis...');
-            try {
-                const res = await fetch('/pipeline/run-full', { method: 'POST' });
-                const data = await res.json();
-                const totalNew = data.ingestion ? data.ingestion.total_new_records : 0;
-                const synth = data.synthesis ? data.synthesis.processed : 0;
-                showToast(`✓ Pipeline Completed: ${totalNew} Ingested, ${synth} Synthesized.`);
-                await refreshDashboardData();
-            } catch (err) {
-                showToast(`Pipeline Error: ${err.message}`, true);
-            }
-        }
+  <!-- OFFICERS -->
+  <section class="view" id="v-officers">
+    <div class="table-wrap">
+      <div class="table-bar">
+        <h2>Law enforcement employees</h2>
+        <span class="tag" id="officers-meta">—</span>
+        <input type="text" id="q-officers" placeholder="filter by key, agency, rank…">
+      </div>
+      <div class="scroller">
+        <table>
+          <thead><tr>
+            <th>Source employee key</th><th>Agency</th><th>Rank</th><th>Gender</th>
+            <th>Race / ethnicity group</th><th class="num">Force recs</th>
+            <th class="num">Out of policy</th><th class="num">Arrests</th>
+            <th class="num">Complaints</th><th class="num">Findings</th><th>Source</th>
+          </tr></thead>
+          <tbody id="tb-officers"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 
-        async function triggerAction(url, label) {
-            showToast('Executing task...');
-            try {
-                const res = await fetch(url, { method: 'POST' });
-                showToast(`✓ ${label}`);
-                await refreshDashboardData();
-            } catch (err) {
-                showToast(`Error: ${err.message}`, true);
-            }
-        }
+  <!-- INCIDENTS -->
+  <section class="view" id="v-incidents">
+    <div class="split">
+      <div class="table-wrap">
+        <div class="table-bar">
+          <h2>Incidents</h2>
+          <span class="tag" id="incidents-meta">—</span>
+          <input type="text" id="q-incidents" placeholder="filter by number, force, location, charge…">
+        </div>
+        <div class="scroller">
+          <table>
+            <thead><tr>
+              <th>Incident</th><th>Date</th><th>Report type</th><th>Highest force</th>
+              <th>Weapon</th><th>Resistance</th><th>Injury</th><th>Location</th>
+              <th class="num">Officers</th><th></th>
+            </tr></thead>
+            <tbody id="tb-incidents"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="detail" id="incident-detail">
+        <div class="empty">Select a row.</div>
+      </div>
+    </div>
+  </section>
 
-        async function refreshDashboardData() {
-            await Promise.all([
-                loadAnalyticsAndKPIs(),
-                loadIncidentsTable(),
-                loadOfficersTable(),
-                loadLinksTable(),
-                loadSourcesTable(),
-                loadSuspendedTable()
-            ]);
-        }
+  <!-- ARRESTS -->
+  <section class="view" id="v-arrests">
+    <div class="table-wrap">
+      <div class="table-bar">
+        <h2>Arrests</h2><span class="tag" id="arrests-meta">—</span>
+        <input type="text" id="q-arrests" placeholder="filter…">
+      </div>
+      <div class="scroller"><table>
+        <thead><tr><th>Number</th><th>Date</th><th>Charge</th><th>Code</th><th>Disposition</th>
+        <th>Gender</th><th>Race group</th><th>Age group</th><th>Precinct</th><th>Source</th></tr></thead>
+        <tbody id="tb-arrests"></tbody>
+      </table></div>
+    </div>
+  </section>
 
-        async function loadAnalyticsAndKPIs() {
-            try {
-                const res = await fetch('/api/analytics');
-                const data = await res.json();
-                
-                const s = data.summary || {};
-                document.getElementById('kpi-sources').textContent = s.sources || 68;
-                document.getElementById('kpi-staging').textContent = s.staging_records || 0;
-                document.getElementById('kpi-incidents').textContent = s.incidents || 0;
-                document.getElementById('kpi-officers').textContent = s.officers || 0;
-                document.getElementById('kpi-arrests').textContent = (s.arrests || 0) + (s.charges || 0);
-                document.getElementById('kpi-links').textContent = s.relational_links || 0;
+  <!-- COMPLAINTS -->
+  <section class="view" id="v-complaints">
+    <div class="table-wrap">
+      <div class="table-bar">
+        <h2>Complaints, reprimands &amp; liability claims</h2><span class="tag" id="complaints-meta">—</span>
+        <input type="text" id="q-complaints" placeholder="filter…">
+      </div>
+      <div class="scroller"><table>
+        <thead><tr><th>Number</th><th>Date</th><th>Category</th><th>Allegation</th>
+        <th>Finding</th><th>Discipline</th><th>Status</th><th class="num">Paid</th><th>Source</th></tr></thead>
+        <tbody id="tb-complaints"></tbody>
+      </table></div>
+    </div>
+  </section>
 
-                renderAnalyticsCharts(data);
-            } catch (err) {
-                console.error('Analytics load error:', err);
-            }
-        }
+  <!-- NEWS -->
+  <section class="view" id="v-news">
+    <div class="table-wrap">
+      <div class="table-bar">
+        <h2>News items</h2><span class="tag" id="news-meta">—</span>
+        <input type="text" id="q-news" placeholder="filter…">
+      </div>
+      <div class="scroller"><table>
+        <thead><tr><th>Published</th><th>Title</th><th>Feed</th><th>Retrieved</th></tr></thead>
+        <tbody id="tb-news"></tbody>
+      </table></div>
+    </div>
+  </section>
 
-        function renderAnalyticsCharts(data) {
-            if (typeof Chart === 'undefined') return;
+  <!-- SOURCES -->
+  <section class="view" id="v-sources">
+    <div class="table-wrap">
+      <div class="table-bar">
+        <h2>Configured sources &amp; last verification pass</h2>
+        <span class="tag" id="sources-meta">—</span>
+      </div>
+      <div class="scroller"><table>
+        <thead><tr><th>Source</th><th>Adapter</th><th>Endpoint</th><th>Last probe</th>
+        <th>HTTP</th><th class="num">Rows advertised</th><th class="num">Fetched</th>
+        <th class="num">New</th><th>Result</th></tr></thead>
+        <tbody id="tb-sources"></tbody>
+      </table></div>
+    </div>
+  </section>
 
-            // 1. Timeline Chart
-            const ctxTime = document.getElementById('canvas-timeline');
-            if (ctxTime && data.timeline) {
-                if (chartTimeline) chartTimeline.destroy();
-                chartTimeline = new Chart(ctxTime, {
-                    type: 'line',
-                    data: {
-                        labels: data.timeline.labels,
-                        datasets: [
-                            {
-                                label: 'All Incidents',
-                                data: data.timeline.incidents,
-                                borderColor: '#00f0ff',
-                                backgroundColor: 'rgba(0, 240, 255, 0.12)',
-                                borderWidth: 2.5,
-                                fill: true,
-                                tension: 0.35,
-                                pointBackgroundColor: '#00f0ff',
-                                pointRadius: 4
-                            },
-                            {
-                                label: 'Fatal Encounters',
-                                data: data.timeline.fatalities,
-                                borderColor: '#9d4edd',
-                                backgroundColor: 'rgba(157, 78, 221, 0.15)',
-                                borderWidth: 2,
-                                fill: true,
-                                tension: 0.35,
-                                pointBackgroundColor: '#9d4edd',
-                                pointRadius: 4
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'top', labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } }
-                        },
-                        scales: {
-                            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b' } },
-                            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', stepSize: 1 } }
-                        }
-                    }
-                });
-            }
+  <!-- ARCHIVE -->
+  <section class="view" id="v-archive">
+    <div class="table-wrap">
+      <div class="table-bar">
+        <h2>Sealed monthly snapshots</h2><span class="tag" id="archive-meta">—</span>
+        <div class="spacer" style="flex:1"></div>
+        <button id="btn-archive">Refresh archive</button>
+      </div>
+      <div class="scroller"><table>
+        <thead><tr><th>Period</th><th class="num">Rev</th><th>State</th><th>SHA-256</th>
+        <th>Sealed at</th><th class="num">Incidents</th><th class="num">Force recs</th>
+        <th class="num">Arrests</th><th class="num">Complaints</th><th class="num">Findings</th></tr></thead>
+        <tbody id="tb-archive"></tbody>
+      </table></div>
+    </div>
+  </section>
 
-            // 2. Force Taxonomy Doughnut Chart
-            const ctxTax = document.getElementById('canvas-taxonomy');
-            if (ctxTax && data.force_taxonomy) {
-                if (chartTaxonomy) chartTaxonomy.destroy();
-                chartTaxonomy = new Chart(ctxTax, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.force_taxonomy.labels,
-                        datasets: [{
-                            data: data.force_taxonomy.counts,
-                            backgroundColor: ['#00f0ff', '#9d4edd', '#00dfd8', '#f59e0b', '#ff007a', '#7928ca'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'right', labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } }
-                        },
-                        cutout: '72%'
-                    }
-                });
-            }
+  <!-- SEARCH -->
+  <section class="view" id="v-search">
+    <div class="table-bar" style="border:1px solid var(--hair);border-radius:14px;margin-bottom:12px">
+      <h2>Hybrid retrieval</h2>
+      <input type="text" id="q-search" placeholder="e.g. taser out of policy" style="flex:1;min-width:260px">
+      <button id="btn-search" class="primary">Search</button>
+      <span class="tag" id="search-meta">—</span>
+    </div>
+    <div class="findings" id="search-results"></div>
+  </section>
+</main>
 
-            // 3. Agency Distribution Bar Chart
-            const ctxAgency = document.getElementById('canvas-agencies');
-            if (ctxAgency && data.agency_distribution) {
-                if (chartAgencies) chartAgencies.destroy();
-                chartAgencies = new Chart(ctxAgency, {
-                    type: 'bar',
-                    data: {
-                        labels: data.agency_distribution.labels,
-                        datasets: [
-                            {
-                                label: 'Incidents / Encounters',
-                                data: data.agency_distribution.incidents,
-                                backgroundColor: '#00f0ff',
-                                borderRadius: 6
-                            },
-                            {
-                                label: 'Officers on Roster',
-                                data: data.agency_distribution.officers,
-                                backgroundColor: '#9d4edd',
-                                borderRadius: 6
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'top', labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } }
-                        },
-                        scales: {
-                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
-                            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#94a3b8', stepSize: 2 } }
-                        }
-                    }
-                });
-            }
+<footer>
+  Every row links to the public record it was read from · schema <code id="f-schema">—</code>
+</footer>
 
-            // 4. Graph Topology Doughnut Chart
-            const ctxTop = document.getElementById('canvas-topology');
-            if (ctxTop && data.graph_topology) {
-                if (chartTopology) chartTopology.destroy();
-                chartTopology = new Chart(ctxTop, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.graph_topology.labels,
-                        datasets: [{
-                            data: data.graph_topology.counts,
-                            backgroundColor: ['#00f0ff', '#9d4edd', '#00dfd8', '#f59e0b'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'right', labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } }
-                        },
-                        cutout: '72%'
-                    }
-                });
-            }
-        }
+<script>
+"use strict";
 
-        async function loadIncidentsTable() {
-            const tbody = document.getElementById('rows-incidents');
-            try {
-                const res = await fetch('/incidents?limit=250');
-                cachedIncidents = await res.json();
-                renderIncidents(cachedIncidents);
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--neon-red);">Error loading incidents: ${err.message}</td></tr>`;
-            }
-        }
+const NEON = ["#00e5ff","#b026ff","#39ff14","#ff2e63","#ffe600","#ff7a00","#2f7bff",
+              "#00ffa3","#ff00d4","#9dff00","#ff5c00","#5ce1ff","#c77dff","#f9f871"];
+const cache = new Map();          // period -> payload  (no refetch on revisit)
+let view = null;                  // currently rendered payload
+let charts = {};
+let raw = { officers: [], incidents: [], arrests: [], complaints: [], news: [], sources: [] };
 
-        function formatDateTime(isoStr) {
-            if (!isoStr) return 'Date Undisclosed';
-            const dt = new Date(isoStr);
-            if (isNaN(dt.getTime())) return isoStr;
-            return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) + ' UTC';
-        }
+const $  = (id) => document.getElementById(id);
+const el = (t, c, h) => { const n = document.createElement(t); if (c) n.className = c; if (h !== undefined) n.innerHTML = h; return n; };
+const fmt = (n) => (n === null || n === undefined) ? "" : Number(n).toLocaleString("en-US");
+const nil = '<span class="nil">—</span>';
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cell = (v, cls) => (v === null || v === undefined || v === "") ? `<td class="${cls||""}">${nil}</td>` : `<td class="${cls||""}"><b>${esc(v)}</b></td>`;
+const srcCell = (u) => u ? `<td><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">record ↗</a></td>` : `<td>${nil}</td>`;
+const shortHash = (h) => h ? `<span class="mono" title="${esc(h)}">${esc(h.slice(0,12))}</span>` : nil;
 
-        function renderIncidents(list) {
-            const tbody = document.getElementById('rows-incidents');
-            if (!list || list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:3rem; color:var(--text-muted);">No incidents synthesized. Click "⚡ Run Full Pipeline".</td></tr>';
-                return;
-            }
-            tbody.innerHTML = list.map(i => {
-                const officersHtml = (i.officers_involved && i.officers_involved.length > 0)
-                    ? i.officers_involved.map(o => `<span class="pill pill-violet">${o.rank} ${o.name} (#${o.badge_number})</span>`).join(' ')
-                    : '<span style="color:var(--text-muted);">Pending Identification</span>';
+Chart.defaults.color = "#a8b0bd";
+Chart.defaults.font.family = "'Inter',system-ui,sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.borderColor = "rgba(255,255,255,.07)";
 
-                let typeBadge = 'pill-cyan';
-                if ((i.incident_type || '').includes('death') || (i.incident_type || '').includes('fatal')) typeBadge = 'pill-pink';
-                if ((i.incident_type || '').includes('force')) typeBadge = 'pill-violet';
+/* ---------------- data loading ---------------- */
 
-                return `
-                    <tr>
-                        <td class="code-cell">#${i.id}</td>
-                        <td><span class="pill ${typeBadge}">${i.incident_type || 'Incident'}</span></td>
-                        <td class="code-cell">${formatDateTime(i.occurred_at)}</td>
-                        <td>${i.location || 'Location Undisclosed'}</td>
-                        <td><span class="pill pill-violet">${i.agency_name}</span></td>
-                        <td><strong>${i.subject_name || 'Subject Unknown'}</strong></td>
-                        <td>${officersHtml}</td>
-                        <td>
-                            <button class="btn-inspect" onclick="inspectIncident(${i.id})">🔍 Provenance</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
+async function j(url) {
+  const r = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
+  return r.json();
+}
 
-        function filterIncidents() {
-            const q = document.getElementById('search-incidents').value.toLowerCase();
-            const filtered = cachedIncidents.filter(i => {
-                const text = `${i.incident_type} ${i.location} ${i.agency_name} ${i.subject_name} ${JSON.stringify(i.officers_involved || '')}`.toLowerCase();
-                return text.includes(q);
-            });
-            renderIncidents(filtered);
-        }
+async function loadPeriod(period) {
+  const key = period || "all";
+  if (cache.has(key)) { view = cache.get(key); render(); return; }   // cached: zero requests
+  const payload = await j(`/api/month/${key}`);
+  cache.set(key, payload);
+  view = payload;
+  render();
+}
 
-        async function loadOfficersTable() {
-            const tbody = document.getElementById('rows-officers');
-            try {
-                const res = await fetch('/officers?limit=250');
-                cachedOfficers = await res.json();
-                renderOfficers(cachedOfficers);
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--neon-red);">Error loading officers: ${err.message}</td></tr>`;
-            }
-        }
+async function refreshAll() {
+  cache.clear();
+  await Promise.all([loadState(), loadPeriod($("period").value)]);
+  await loadTables();
+}
 
-        function renderOfficers(list) {
-            const tbody = document.getElementById('rows-officers');
-            if (!list || list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:3rem; color:var(--text-muted);">No officers recorded. Click "⚡ Run Full Pipeline".</td></tr>';
-                return;
-            }
-            tbody.innerHTML = list.map(o => `
-                <tr>
-                    <td class="code-cell">#${o.id}</td>
-                    <td class="code-cell"><strong>${o.badge_number}</strong></td>
-                    <td class="code-cell">${o.employee_id}</td>
-                    <td><strong>${o.full_name}</strong></td>
-                    <td><span class="pill pill-violet">${o.rank}</span></td>
-                    <td><span class="pill pill-cyan">${o.agency_name}</span></td>
-                    <td><span class="pill pill-amber">${o.notes || o.status}</span></td>
-                    <td class="code-cell"><span class="pill pill-emerald">${o.incidents_count} Encounters</span></td>
-                    <td>
-                        <button class="btn-inspect" onclick="inspectOfficer(${o.id})">🔍 Provenance</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
+async function loadState() {
+  const st = await j("/api/state");
+  $("f-schema").textContent = "v" + st.schema_version;
+  const sel = $("period");
+  const current = sel.value;
+  const periods = ["all", ...(st.periods || [])];
+  sel.innerHTML = periods.map((p) =>
+    `<option value="${p}">${p === "all" ? "all months" : p}</option>`).join("");
+  sel.value = periods.includes(current) ? current : (st.current_period || "all");
+  if (st.last_run) {
+    $("run-stat").textContent =
+      `run #${st.last_run.id} · ${st.last_run.trigger} · ${st.last_run.ok ? "ok" : "failed"}`;
+  }
+  const src = await j("/api/sources");
+  raw.sources = src.records;
+  const ok = src.reachable, total = src.count;
+  $("ct-sources").textContent = `${ok}/${total}`;
+  const dot = $("net-dot");
+  dot.className = "dot " + (total === 0 ? "idle" : (ok > 0 ? "" : "bad"));
+  $("net-text").textContent = `${ok}/${total} sources reachable`;
+  renderReachability(src);
+  renderSources(src.records);
+}
 
-        function filterOfficers() {
-            const q = document.getElementById('search-officers').value.toLowerCase();
-            const filtered = cachedOfficers.filter(o => {
-                const text = `${o.badge_number} ${o.employee_id} ${o.full_name} ${o.rank} ${o.agency_name} ${o.notes}`.toLowerCase();
-                return text.includes(q);
-            });
-            renderOfficers(filtered);
-        }
+async function loadTables() {
+  const period = $("period").value === "all" ? "" : `?period=${$("period").value}`;
+  const [a, c, n] = await Promise.all([
+    j("/api/arrests" + period), j("/api/complaints" + period), j("/api/news" + period),
+  ]);
+  raw.arrests = a.records; raw.complaints = c.records; raw.news = n.records;
+  $("ct-arrests").textContent = fmt(a.count);
+  $("ct-complaints").textContent = fmt(c.count);
+  $("ct-news").textContent = fmt(n.count);
+  renderArrests(); renderComplaints(); renderNews();
+}
 
-        async function loadLinksTable() {
-            const tbody = document.getElementById('rows-links');
-            try {
-                const res = await fetch('/links?limit=500');
-                cachedLinks = await res.json();
-                renderLinks(cachedLinks);
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--neon-red);">Error loading links: ${err.message}</td></tr>`;
-            }
-        }
+/* ---------------- render ---------------- */
 
-        function renderLinks(list) {
-            const tbody = document.getElementById('rows-links');
-            if (!list || list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:3rem; color:var(--text-muted);">No links synthesized.</td></tr>';
-                return;
-            }
-            tbody.innerHTML = list.map(l => {
-                let badgeClass = 'pill-cyan';
-                if (l.relation_type === 'involved_in') badgeClass = 'pill-violet';
-                if (l.relation_type === 'derived_from') badgeClass = 'pill-emerald';
-                return `
-                    <tr>
-                        <td class="code-cell">#${l.id}</td>
-                        <td class="code-cell"><strong>${l.source_entity}</strong> #${l.source_id}</td>
-                        <td><span class="pill ${badgeClass}">${l.relation_type}</span></td>
-                        <td class="code-cell"><strong>${l.target_entity}</strong> #${l.target_id}</td>
-                        <td class="code-cell"><strong>${l.join_key}</strong></td>
-                        <td class="code-cell"><span class="pill pill-emerald">${(l.confidence * 100).toFixed(0)}% MATCH</span></td>
-                    </tr>
-                `;
-            }).join('');
-        }
+function renderReachability(src) {
+  const box = $("reachability");
+  if (src.count > 0 && src.reachable === 0) {
+    const first = src.records.find((r) => r.detail);
+    box.style.display = "block";
+    box.innerHTML = `<b>0 of ${src.count} configured sources answered on the last verification pass.</b>
+      No records have been fabricated to fill the gap — the lattice renders exactly what was
+      retrieved, which is nothing. Latest probe result:
+      <code>${esc((first && first.detail) || "not yet probed")}</code>
+      <br><br>Use <b>Run pipeline</b> to re-probe. On a host with outbound access to
+      <code>phoenixopendata.com</code> and <code>data.tempe.gov</code> the same run populates every panel.`;
+  } else {
+    box.style.display = "none";
+  }
+}
 
-        function filterLinks() {
-            const q = document.getElementById('search-links').value.toLowerCase();
-            const filtered = cachedLinks.filter(l => {
-                const text = `${l.source_entity} ${l.relation_type} ${l.target_entity} ${l.join_key}`.toLowerCase();
-                return text.includes(q);
-            });
-            renderLinks(filtered);
-        }
+function render() {
+  if (!view) return;
+  const c = view.counts || {};
+  $("ct-findings").textContent = fmt(c.findings || 0);
+  $("ct-officers").textContent = fmt(c.officers || 0);
+  $("ct-incidents").textContent = fmt(c.incidents || 0);
 
-        async function loadSourcesTable() {
-            const tbody = document.getElementById('rows-sources');
-            try {
-                const res = await fetch('/sources');
-                cachedSources = await res.json();
-                renderSources(cachedSources);
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--neon-red);">Error loading sources: ${err.message}</td></tr>`;
-            }
-        }
+  const kpis = [
+    ["Incidents", c.incidents, "this period"],
+    ["Officer force records", c.force_events, "officer × incident"],
+    ["Arrests", c.arrests, "this period"],
+    ["Complaints / claims", c.complaints, "this period"],
+    ["Anomaly findings", c.findings, "statistically tested"],
+    ["Employees tracked", c.officers, "all periods"],
+  ];
+  $("kpis").innerHTML = kpis.map(([k, v, s]) =>
+    `<div class="panel kpi"><div class="k">${k}</div><div class="v">${fmt(v)}</div>
+     <div class="s">${s}</div></div>`).join("");
 
-        function renderSources(list) {
-            const tbody = document.getElementById('rows-sources');
-            tbody.innerHTML = list.map(s => `
-                <tr>
-                    <td class="code-cell"><strong>${s.id}</strong></td>
-                    <td><strong>${s.name}</strong></td>
-                    <td><span class="pill pill-violet">${s.category || 'official'}</span></td>
-                    <td class="code-cell">${s.adapter || 'api'}</td>
-                    <td><span class="pill pill-cyan">${s.access_mode || 'api'}</span></td>
-                    <td class="code-cell">${s.schedule || 'on-demand'}</td>
-                </tr>
-            `).join('');
-        }
+  const arc = view.archive || {};
+  const tagExtra = arc.sealed
+    ? ` · sealed rev ${arc.revision} · ${arc.content_sha256.slice(0,10)}`
+    : " · live";
+  document.querySelectorAll(".panel-h .tag").forEach((t) => {
+    if (t.id.startsWith("t-")) t.textContent = (view.period || "all months") + tagExtra;
+  });
 
-        function filterSources() {
-            const q = document.getElementById('search-sources').value.toLowerCase();
-            const filtered = cachedSources.filter(s => {
-                const text = `${s.id} ${s.name} ${s.category} ${s.adapter} ${s.access_mode}`.toLowerCase();
-                return text.includes(q);
-            });
-            renderSources(filtered);
-        }
+  donut("c-force",  view.force_applied,  "t-force");
+  donut("c-policy", view.policy_outcome, "t-policy");
+  donut("c-armed",  view.armed_type,     "t-armed");
+  bars ("c-timeline", view.timeline,     "t-timeline");
+  hbars("c-charges", view.arrest_charges,"t-charges");
+  hbars("c-agency",  { labels:(view.agencies||[]).map(a=>a.name),
+                       counts:(view.agencies||[]).map(a=>a.incidents) }, "t-agency");
 
-        async function loadSuspendedTable() {
-            const tbody = document.getElementById('rows-suspended');
-            try {
-                const res = await fetch('/staging/suspended?limit=250');
-                const list = await res.json();
-                if (!list || list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--neon-emerald);">✓ All dependencies satisfied. 0 suspended staging records.</td></tr>';
-                    return;
-                }
-                tbody.innerHTML = list.map(s => `
-                    <tr>
-                        <td class="code-cell">#${s.id}</td>
-                        <td class="code-cell"><strong>${s.source_id}</strong></td>
-                        <td><span class="pill pill-cyan">${s.entity_type}</span></td>
-                        <td style="color:var(--neon-amber);">${s.suspension_reason || '-'}</td>
-                        <td class="code-cell">${s.record_hash ? s.record_hash.substring(0, 16) + '...' : '-'}</td>
-                    </tr>
-                `).join('');
-            } catch (err) {
-                console.error(err);
-            }
-        }
+  raw.officers  = view.officers  || [];
+  raw.incidents = view.incidents || [];
+  renderOfficers(); renderIncidents(); renderFindings(view.findings || []);
+  renderArchive();
+}
 
-        // PROVENANCE INSPECTOR LOGIC
-        function inspectIncident(incId) {
-            const inc = cachedIncidents.find(i => i.id === incId);
-            if (!inc) return;
+function destroy(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
 
-            document.getElementById('insp-title').textContent = `Incident Provenance: #${inc.id} (${inc.incident_number})`;
-            document.getElementById('insp-source-id').textContent = (inc.external_ids && inc.external_ids.source_id) || 'Seed / Catalog Ingest';
-            document.getElementById('insp-ext-id').textContent = inc.incident_number || `INC-${inc.id}`;
-            document.getElementById('insp-hash').textContent = `SHA256: ${inc.incident_number.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0).toString(16)}`;
+function donut(id, series, tagId) {
+  destroy(id);
+  const labels = series.labels || [], counts = series.counts || [];
+  const total = series.total || counts.reduce((a, b) => a + b, 0);
+  if ($(tagId)) $(tagId).textContent = `${fmt(total)} records · ${labels.length} categories`;
+  charts[id] = new Chart($(id), {
+    type: "doughnut",
+    data: { labels, datasets: [{ data: counts, backgroundColor: NEON, borderColor: "#000",
+            borderWidth: 2, hoverOffset: 12 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: "54%",
+      plugins: {
+        legend: { position: "right", labels: { boxWidth: 10, boxHeight: 10, padding: 9,
+                  font: { size: 10.5 }, usePointStyle: true, pointStyle: "rectRounded" } },
+        tooltip: { callbacks: { label: (x) => {
+          const v = x.parsed, p = total ? (100 * v / total).toFixed(1) : "0.0";
+          return ` ${x.label}: ${fmt(v)} (${p}%)`;
+        } } },
+      },
+    },
+  });
+}
 
-            const evCard = document.getElementById('insp-evidence-card');
-            const ev = inc.evidence || {};
-            let evHtml = '';
-            if (ev.force_tactics && ev.force_tactics.length > 0) {
-                evHtml += `<div style="font-size:0.8125rem; margin-bottom:0.4rem;"><strong>Extracted Force Tactic:</strong> <span class="pill pill-violet">${ev.force_tactics[0].force_category}</span> (Confidence: ${(ev.force_tactics[0].confidence * 100).toFixed(0)}%)</div>`;
-                if (ev.force_tactics[0].snippet) {
-                    evHtml += `<div class="code-cell" style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; font-size:0.72rem;">"${ev.force_tactics[0].snippet}"</div>`;
-                }
-            } else {
-                evHtml = '<div style="color:var(--text-muted); font-size:0.8125rem;">Direct canonical ingestion record.</div>';
-            }
-            evCard.innerHTML = evHtml;
+function bars(id, tl, tagId) {
+  destroy(id);
+  const labels = tl.labels || [];
+  if ($(tagId)) $(tagId).textContent = `${labels.length} months`;
+  charts[id] = new Chart($(id), {
+    type: "bar",
+    data: { labels, datasets: [
+      { label: "Incidents", data: tl.incidents || [], backgroundColor: "#00e5ff" },
+      { label: "Officer force records", data: tl.force_events || [], backgroundColor: "#b026ff" },
+      { label: "Arrests", data: tl.arrests || [], backgroundColor: "#39ff14" },
+      { label: "Complaints", data: tl.complaints || [], backgroundColor: "#ff2e63" },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false,
+      scales: { x: { stacked: false, grid: { display: false } },
+                y: { beginAtZero: true, grid: { color: "rgba(255,255,255,.06)" } } },
+      plugins: { legend: { position: "bottom", labels: { boxWidth: 9, boxHeight: 9,
+                 usePointStyle: true, pointStyle: "rectRounded", padding: 12 } } } },
+  });
+}
 
-            document.getElementById('insp-raw-json').textContent = JSON.stringify(inc.data || inc, null, 2);
-            document.getElementById('modal-inspector').style.display = 'flex';
-        }
+function hbars(id, series, tagId) {
+  destroy(id);
+  const labels = series.labels || [], counts = series.counts || [];
+  if ($(tagId)) $(tagId).textContent = `${labels.length} categories`;
+  charts[id] = new Chart($(id), {
+    type: "bar",
+    data: { labels, datasets: [{ data: counts, backgroundColor: NEON, borderRadius: 3 }] },
+    options: { indexAxis: "y", responsive: true, maintainAspectRatio: false,
+      scales: { x: { beginAtZero: true, grid: { color: "rgba(255,255,255,.06)" } },
+                y: { grid: { display: false }, ticks: { font: { size: 10 } } } },
+      plugins: { legend: { display: false } } },
+  });
+}
 
-        function inspectOfficer(offId) {
-            const off = cachedOfficers.find(o => o.id === offId);
-            if (!off) return;
+/* ---------------- tables ---------------- */
 
-            document.getElementById('insp-title').textContent = `Officer Provenance: ${off.full_name} (${off.badge_number})`;
-            document.getElementById('insp-source-id').textContent = off.source_id || 'abc15_brady_list_database';
-            document.getElementById('insp-ext-id').textContent = `Badge: ${off.badge_number} | EmpID: ${off.employee_id}`;
-            document.getElementById('insp-hash').textContent = `SHA256: ${off.badge_number.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0).toString(16)}`;
+function renderOfficers(list) {
+  const rows = list || raw.officers;
+  $("officers-meta").textContent = `${rows.length} rows · untruncated`;
+  $("tb-officers").innerHTML = rows.length ? rows.map((o) => `
+    <tr>
+      <td class="mono">${esc(o.external_key)}</td>
+      ${cell(o.agency_name)}${cell(o.rank)}${cell(o.gender)}${cell(o.race_group)}
+      <td class="num">${fmt(o.force_events)}</td>
+      <td class="num">${o.out_of_policy ? `<span class="pill p-pink">${fmt(o.out_of_policy)}</span>` : "0"}</td>
+      <td class="num">${fmt(o.arrests)}</td>
+      <td class="num">${fmt(o.complaints)}</td>
+      <td class="num">${o.findings.length ? `<span class="pill p-yellow">${o.findings.length}</span>` : "0"}</td>
+      ${srcCell(o.source_url)}
+    </tr>`).join("")
+    : `<tr><td colspan="11"><div class="empty">No officer records for this period.</div></td></tr>`;
+}
 
-            const evCard = document.getElementById('insp-evidence-card');
-            evCard.innerHTML = `
-                <div style="font-size:0.8125rem; margin-bottom:0.4rem;"><strong>Disciplinary / Roster Record:</strong> <span class="pill pill-amber">${off.notes}</span></div>
-                <div class="provenance-row" style="margin-top:0.5rem;">
-                    <span class="provenance-label">Jurisdictional Agency:</span>
-                    <span class="provenance-value">${off.agency_name}</span>
-                </div>
-                <div class="provenance-row">
-                    <span class="provenance-label">Assigned Rank:</span>
-                    <span class="provenance-value">${off.rank}</span>
-                </div>
-            `;
+function renderIncidents(list) {
+  const rows = list || raw.incidents;
+  $("incidents-meta").textContent = `${rows.length} rows · untruncated`;
+  $("tb-incidents").innerHTML = rows.length ? rows.map((i) => `
+    <tr onclick="showIncident(${i.id})" style="cursor:pointer">
+      <td class="mono">${esc(i.external_number)}</td>
+      ${cell((i.occurred_at || "").slice(0, 10), "mono")}
+      ${cell(i.force_level)}${cell(i.highest_force_applied)}${cell(i.armed_type)}
+      ${cell(i.resistance)}${cell(i.injury)}${cell(i.location)}
+      <td class="num">${fmt((i.officers || []).length)}</td>
+      <td><a href="${esc(i.source_url)}" target="_blank" rel="noopener noreferrer"
+             onclick="event.stopPropagation()">source ↗</a></td>
+    </tr>`).join("")
+    : `<tr><td colspan="10"><div class="empty">No incident records for this period.</div></td></tr>`;
+}
 
-            document.getElementById('insp-raw-json').textContent = JSON.stringify(off.external_ids || off, null, 2);
-            document.getElementById('modal-inspector').style.display = 'flex';
-        }
+function showIncident(id) {
+  const i = raw.incidents.find((x) => x.id === id);
+  if (!i) return;
+  const officers = (i.officers || []).map((o) =>
+    `<div class="mono" style="font-size:11px;line-height:1.7">
+       ${esc(o.officer_key)} · policy: ${esc(o.within_policy || "—")} · BWC: ${esc(o.bwc_activated || "—")}
+     </div>`).join("") || `<div class="nil">no officer records attached</div>`;
+  $("incident-detail").innerHTML = `
+    <div class="panel-h"><h2>${esc(i.external_number)}</h2><span class="tag">${esc(i.period || "")}</span></div>
+    <dl class="kv">
+      <dt>Agency</dt><dd>${esc(i.agency_name || "—")}</dd>
+      <dt>Occurred</dt><dd>${esc(i.occurred_at || "—")}</dd>
+      <dt>Report type</dt><dd>${esc(i.force_level || "—")}</dd>
+      <dt>Highest force</dt><dd>${esc(i.highest_force_applied || "—")}</dd>
+      <dt>Weapon type</dt><dd>${esc(i.armed_type || "—")}</dd>
+      <dt>Resistance</dt><dd>${esc(i.resistance || "—")}</dd>
+      <dt>De-escalation</dt><dd>${esc(i.de_escalation || "—")}</dd>
+      <dt>Injury</dt><dd>${esc(i.injury || "—")}</dd>
+      <dt>Highest charge</dt><dd>${esc(i.highest_charge || "—")}</dd>
+      <dt>Outcome</dt><dd>${esc(i.outcome || "—")}</dd>
+      <dt>Subject</dt><dd>${esc([i.subject_gender, i.subject_race_group, i.subject_age_group].filter(Boolean).join(" · ") || "—")}</dd>
+      <dt>Location</dt><dd>${esc(i.location || "—")}</dd>
+      <dt>Precinct</dt><dd>${esc(i.precinct || "—")}</dd>
+      <dt>Dataset</dt><dd>${esc(i.dataset_title || i.dataset || "—")}</dd>
+      <dt>Retrieved</dt><dd>${esc(i.retrieved_at || "—")}</dd>
+      <dt>SHA-256</dt><dd>${esc(i.content_sha256 || "—")}</dd>
+    </dl>
+    <div style="margin-top:12px;font-size:10.5px;color:var(--ink-3);font-style:italic;
+                text-transform:uppercase;letter-spacing:.05em">Officer records</div>
+    ${officers}
+    <div style="margin-top:12px"><a href="${esc(i.source_url)}" target="_blank"
+       rel="noopener noreferrer">Open the source record ↗</a></div>
+    <div style="margin-top:6px;font-size:10.5px;color:var(--ink-3);font-family:var(--mono);
+                word-break:break-all">${esc(i.source_url)}</div>
+    <pre>${esc(JSON.stringify(i.source_row ?? i, null, 2))}</pre>`;
+}
 
-        function closeInspector(e) {
-            if (e.target.id === 'modal-inspector') {
-                document.getElementById('modal-inspector').style.display = 'none';
-            }
-        }
+function renderFindings(list) {
+  const sev = $("sev-filter").value;
+  const rows = sev ? list.filter((f) => f.severity === sev) : list;
+  $("findings-meta").textContent =
+    `${rows.length} findings · ${list.length} total · exact Poisson & binomial tests vs same agency + month`;
+  $("findings-list").innerHTML = rows.length ? rows.map((f) => `
+    <div class="finding ${esc(f.severity)}">
+      <div class="fh">
+        <span class="pill ${f.severity === "high" ? "p-pink" : "p-yellow"}">${esc(f.severity)}</span>
+        <span class="who">${esc(f.officer_key || "officer " + f.officer_id)}</span>
+        <span class="tag" style="font-family:var(--mono);font-size:9.5px;color:var(--ink-3)">
+          ${esc(f.agency_name || "")} · ${esc(f.period)}</span>
+      </div>
+      <p>${esc(f.narrative)}</p>
+      <div class="stats">
+        <div>value <b>${f.value === null ? "—" : Number(f.value).toFixed(4)}</b></div>
+        <div>peer <b>${f.peer_value === null ? "—" : Number(f.peer_value).toFixed(4)}</b></div>
+        <div>z <b>${f.robust_z === null ? "—" : Number(f.robust_z).toFixed(2)}</b></div>
+        <div>p <b>${f.p_value === null ? "—" : Number(f.p_value).toExponential(2)}</b></div>
+        <div>peers <b>${fmt(f.peer_count)}</b></div>
+      </div>
+      <div class="src">${(f.sources || []).map((s) =>
+        `<a href="${esc(s)}" target="_blank" rel="noopener noreferrer">${esc(s)}</a>`).join("<br>") || "no source url"}</div>
+    </div>`).join("")
+    : `<div class="empty">No findings cleared the emission thresholds for this period.
+       Thresholds: p &lt; 0.05 and robust z ≥ 2 (elevated), p &lt; 0.01 and robust z ≥ 3 (high),
+       minimum 5 officer records and 30 peers.</div>`;
+}
 
-        function closeInspectorDirect() {
-            document.getElementById('modal-inspector').style.display = 'none';
-        }
+function renderArrests() {
+  const rows = raw.arrests;
+  $("arrests-meta").textContent = `${rows.length} rows · untruncated`;
+  $("tb-arrests").innerHTML = rows.length ? rows.map((a) => `
+    <tr>${cell(a.external_number,"mono")}${cell((a.occurred_at||"").slice(0,10),"mono")}
+      ${cell(a.charge)}${cell(a.charge_code,"mono")}${cell(a.disposition)}
+      ${cell(a.subject_gender)}${cell(a.subject_race_group)}${cell(a.subject_age_group)}
+      ${cell(a.precinct)}${srcCell(a.source_url)}</tr>`).join("")
+    : `<tr><td colspan="10"><div class="empty">No arrest records for this period.</div></td></tr>`;
+}
 
-        // Initialize on page load
-        refreshDashboardData();
-    </script>
+function renderComplaints() {
+  const rows = raw.complaints;
+  $("complaints-meta").textContent = `${rows.length} rows · untruncated`;
+  $("tb-complaints").innerHTML = rows.length ? rows.map((c) => `
+    <tr>${cell(c.external_number,"mono")}${cell((c.occurred_at||"").slice(0,10),"mono")}
+      ${cell(c.category)}${cell(c.allegation)}${cell(c.finding)}${cell(c.discipline)}
+      ${cell(c.status)}<td class="num">${c.amount_paid===null?nil:fmt(c.amount_paid)}</td>
+      ${srcCell(c.source_url)}</tr>`).join("")
+    : `<tr><td colspan="9"><div class="empty">No complaint or claim records for this period.</div></td></tr>`;
+}
+
+function renderNews() {
+  const rows = raw.news;
+  $("news-meta").textContent = `${rows.length} rows`;
+  $("tb-news").innerHTML = rows.length ? rows.map((n) => `
+    <tr>${cell((n.published_at||"").slice(0,10),"mono")}
+      <td><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">${esc(n.title)}</a></td>
+      ${cell(n.source_id,"mono")}${cell((n.retrieved_at||"").slice(0,10),"mono")}</tr>`).join("")
+    : `<tr><td colspan="4"><div class="empty">No news items for this period.</div></td></tr>`;
+}
+
+function renderSources(list) {
+  $("sources-meta").textContent =
+    `${list.filter((s) => s.verified_ok).length} reachable · ${list.length} configured`;
+  $("tb-sources").innerHTML = list.map((s) => `
+    <tr>
+      <td><b>${esc(s.name)}</b><div class="nil">${esc(s.publisher || "")}</div></td>
+      <td class="mono">${esc(s.adapter)}</td>
+      <td class="mono" style="max-width:340px;word-break:break-all">${esc(s.endpoint || "—")}</td>
+      ${cell((s.verified_at || "").slice(0, 19).replace("T", " "), "mono")}
+      ${cell(s.http_status, "mono")}
+      <td class="num">${fmt(s.rows_total_reported)}</td>
+      <td class="num">${fmt(s.rows_fetched_last_run)}</td>
+      <td class="num">${fmt(s.rows_new_last_run)}</td>
+      <td>${s.verified_ok
+        ? `<span class="pill p-green">reachable</span>`
+        : `<span class="pill p-pink" title="${esc(s.detail || "")}">unreachable</span>`}
+          <div class="nil" style="max-width:300px;white-space:normal;margin-top:3px">${esc(s.detail || "")}</div></td>
+    </tr>`).join("");
+}
+
+function renderArchive() {
+  j("/api/months").then((m) => {
+    const rows = m.archived || [];
+    $("archive-meta").textContent = `${rows.length} sealed snapshots`;
+    $("tb-archive").innerHTML = rows.length ? rows.map((s) => {
+      const c = s.counts || {};
+      return `<tr>
+        <td class="mono"><b>${esc(s.period)}</b></td>
+        <td class="num">${s.revision}</td>
+        <td>${s.is_current ? `<span class="pill p-cyan">current</span>` : `<span class="pill p-grey">superseded</span>`}</td>
+        <td>${shortHash(s.content_sha256)}</td>
+        ${cell((s.sealed_at || "").slice(0, 19).replace("T", " "), "mono")}
+        <td class="num">${fmt(c.incidents)}</td><td class="num">${fmt(c.force_events)}</td>
+        <td class="num">${fmt(c.arrests)}</td><td class="num">${fmt(c.complaints)}</td>
+        <td class="num">${fmt(c.findings)}</td></tr>`;
+    }).join("") : `<tr><td colspan="10"><div class="empty">No sealed months yet. Run the pipeline,
+      then the monthly refresh protocol seals each month as an immutable, hash-addressed snapshot.</div></td></tr>`;
+  }).catch(() => {});
+}
+
+/* ---------------- search ---------------- */
+
+async function doSearch() {
+  const q = $("q-search").value.trim();
+  if (!q) return;
+  $("search-meta").textContent = "searching…";
+  const period = $("period").value === "all" ? "" : `&period=${$("period").value}`;
+  try {
+    const r = await j(`/api/search?q=${encodeURIComponent(q)}&k=40${period}`);
+    $("search-meta").textContent =
+      `${r.result_count} results · lexical ${r.lexical ? "on" : "off"} · semantic ` +
+      `${r.semantic ? "on (" + (r.embedding_model || "") + ")" : "off — " + (r.semantic_error || "unavailable")}`;
+    $("search-results").innerHTML = r.results.length ? r.results.map((d) => `
+      <div class="finding">
+        <div class="fh">
+          <span class="pill p-cyan">#${d.rank}</span>
+          <span class="pill p-violet">${esc(d.kind)}</span>
+          <span class="tag" style="font-family:var(--mono);font-size:9.5px;color:var(--ink-3)">
+            rrf ${Number(d.score).toFixed(4)}${d.lexical_score !== null && d.lexical_score !== undefined
+              ? " · bm25 " + Number(d.lexical_score).toFixed(3) : ""}${
+              d.semantic_score !== null && d.semantic_score !== undefined
+              ? " · cos " + Number(d.semantic_score).toFixed(3) : ""}</span>
+        </div>
+        <p>${esc(d.text)}</p>
+        <div class="src">${d.source_url
+          ? `<a href="${esc(d.source_url)}" target="_blank" rel="noopener noreferrer">${esc(d.source_url)}</a>`
+          : "no source url"}</div>
+      </div>`).join("")
+      : `<div class="empty">No matches.</div>`;
+  } catch (e) {
+    $("search-meta").textContent = "search failed: " + e.message;
+  }
+}
+
+/* ---------------- filters ---------------- */
+
+function wireFilter(inputId, listKey, renderFn) {
+  $(inputId).addEventListener("input", () => {
+    const q = $(inputId).value.toLowerCase();
+    renderFn(raw[listKey].filter((r) => JSON.stringify(r).toLowerCase().includes(q)));
+  });
+}
+
+/* ---------------- events ---------------- */
+
+$("tabs").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-view]");
+  if (!btn) return;
+  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b === btn));
+  document.querySelectorAll(".view").forEach((v) =>
+    v.classList.toggle("on", v.id === "v-" + btn.dataset.view));
+});
+
+$("period").addEventListener("change", async () => { await loadPeriod($("period").value); await loadTables(); });
+$("sev-filter").addEventListener("change", () => renderFindings((view && view.findings) || []));
+$("btn-search").addEventListener("click", doSearch);
+$("q-search").addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });
+
+$("btn-run").addEventListener("click", async () => {
+  const btn = $("btn-run");
+  btn.disabled = true; btn.textContent = "Running…";
+  try {
+    const r = await fetch("/api/pipeline/run", { method: "POST" });
+    const report = await r.json();
+    const v = report.phases && report.phases.verify;
+    btn.textContent = v ? `Done · ${v.verdict}` : "Done";
+    await refreshAll();
+  } catch (e) {
+    btn.textContent = "Failed";
+  } finally {
+    setTimeout(() => { btn.disabled = false; btn.textContent = "Run pipeline"; }, 2500);
+  }
+});
+
+$("btn-archive").addEventListener("click", async () => {
+  const btn = $("btn-archive");
+  btn.disabled = true; btn.textContent = "Sealing…";
+  try { await fetch("/api/archive/refresh", { method: "POST" }); await refreshAll(); }
+  finally { setTimeout(() => { btn.disabled = false; btn.textContent = "Refresh archive"; }, 1500); }
+});
+
+/* ---------------- boot ---------------- */
+
+(async function boot() {
+  wireFilter("q-officers",   "officers",   renderOfficers);
+  wireFilter("q-incidents",  "incidents",  renderIncidents);
+  wireFilter("q-arrests",    "arrests",    renderArrests);
+  wireFilter("q-complaints", "complaints", renderComplaints);
+  wireFilter("q-news",       "news",       renderNews);
+  await loadState();
+  await loadPeriod($("period").value);
+  await loadTables();
+  setInterval(loadState, 60000);
+})();
+</script>
 </body>
 </html>

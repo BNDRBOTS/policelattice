@@ -1,6 +1,0 @@
-booking_number,arrest_number,arrested_at,location,agency_name,person_name,statute,charge_description
-BK-2025-0012,ARR-101,2025-01-18T22:30:00Z,5th St & Mill Ave,Tempe Police Department,Anthony Rivera,ARS 13-1204,Aggravated Assault on Peace Officer
-BK-2025-0044,ARR-102,2025-02-14T01:15:00Z,University Dr & Rural Rd,Tempe Police Department,Marcus Vance,ARS 13-2904,Disorderly Conduct
-BK-2025-0089,ARR-103,2025-03-22T19:40:00Z,Broadway Rd & Priest Dr,Tempe Police Department,Sarah Jenkins,ARS 28-693,Reckless Driving
-BK-2025-0150,ARR-104,2025-05-10T03:50:00Z,Apache Blvd & McClintock Dr,Tempe Police Department,Terry Brooks,ARS 13-3407,Dangerous Drugs
-BK-2025-0210,ARR-105,2025-07-04T23:10:00Z,Rio Salado Pkwy & Ash Ave,Tempe Police Department,Derrick Evans,ARS 13-1502,Criminal Trespass

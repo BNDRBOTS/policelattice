@@ -1,142 +1,108 @@
 # Police Lattice
 
-Topological codebase for ingesting, mapping, and synthesizing heterogeneous
-police accountability data from Tempe, Phoenix, Maricopa County, and
-state-level sources.
+Autonomous police-accountability data pipeline. Every figure it shows comes
+from a live public source, fetched at run time, with the originating record
+address attached. There is no sample data, no seeded dataset, and no
+placeholder anywhere in the code path.
 
-## Overview
+## What it does
 
-Police Lattice is an automated data acquisition, normalization, evidence
-extraction, and synthesis pipeline that unifies heterogeneous public records,
-open data portals, news feeds, court records, and manual document drops into
-a single relational lattice. It is designed around explicit joining keys,
-rule-based evidentiary extraction, and state suspension: records whose
-cross-system dependencies are not yet satisfied are held in `suspended` status
-until those dependencies arrive.
+Each run executes six phases, in this order, and will not reorder or skip them:
 
-## Architecture
+| Phase | What happens |
+|---|---|
+| **Search** | Discover and verify every configured source. `package_list`, DCAT feeds and resource manifests are resolved live so a source that adds or removes a resource is picked up without a code change. |
+| **Gather** | Paginated fetch of every discovered resource, with server-side date sorting and a bounded look-back window. |
+| **Organize** | Content-addressed storage of each raw record, with its fetch provenance. |
+| **Process** | Parse to canonical entity types, then resolve officer entities by the identifier the source itself publishes as the officer key — never by name similarity. |
+| **Verify** | Per-record citation checks, provenance completeness, cross-source consistency and coverage gaps. A `fail` verdict blocks the run and prevents a month from being sealed. |
+| **Synthesize** | Persist entities with full provenance, run per-officer statistical anomaly detection, generate findings, and index for hybrid retrieval. |
 
-```
-source_catalog.yaml          (defines 68 sources, access modes, schedules, join requirements)
-        |
-        v
-Autonomous Acquisition       (ArcGIS, Socrata, FlatFile, CourtListener, MuckRock,
-        |                     News RSS, PDF OCR, Audio, Public Records, OPD,
-        |                     Web Scraper, Generic REST with fallback defaults)
-        v
-Raw Snapshots (SHA-256)      (Immutable raw JSON/text with deduplication)
-        |
-        v
-Canonical Normalizer         (Standardizes datetime, agency names, badge numbers,
-        |                     officer names, coordinates, and canonical entity types)
-        v
-Evidence Extraction Engine   (Precompiled regex NLP extractor identifying officers,
-        |                     incidents, ARS statutes, force taxonomy, dockets)
-        v
-Staging Records              (pending / suspended / ready / synthesized / failed)
-        |
-        v
-Dependency Resolver          (promotes suspended records once external keys arrive)
-        |
-        v
-Synthesis Engine             (maps staging records & extracted evidence into unified
-        |                     PostgreSQL lattice with topological entity links)
-        v
-PostgreSQL Lattice           (agencies, officers, incidents, arrests, charges,
-                              complaints, court_cases, documents, news_articles,
-                              surveillance_events, internal_affairs_cases,
-                              monitor_reports, entity_links, synthesis_runs)
-        |
-        v
-FastAPI Web UI & API         (Interactive dashboard, OpenAPI Swagger, and REST endpoints)
-```
+After that, the analytics engine seals the month into an immutable,
+content-addressed snapshot.
 
-## Ingestion & Pipeline Layers
+## Anomaly detection
 
-### 1. Autonomous Acquisition Layer
-- **Resilient Polling**: Coordinates automated acquisition across all 68 catalog sources with thread-pool concurrency limits and strict request timeouts to conserve Railway compute.
-- **Fallback Public Endpoints**: Built-in default public RSS and open data endpoints for verified public feeds.
-- **Deduplication**: Computes SHA-256 checksums per raw record batch to skip duplicate ingestion across repeat runs.
+Per-officer statistical isolation, computed programmatically from the data:
 
-### 2. Canonical Normalization Layer
-- **Temporal Normalization**: Standardizes ISO 8601, Unix timestamps (seconds & milliseconds), RFC 2822, and standard US date formats into timezone-aware UTC `datetime`.
-- **Agency Standardization**: Maps aliases (`"PHX PD"`, `"Phoenix Police"`, `"PPD"`, `"TPD"`, `"MCSO"`, `"AZ DPS"`, `"Mesa PD"`, etc.) to canonical Title Case names.
-- **Identifier & Location Cleaning**: Strips badge formatting (`"#1042"`, `"Badge: B1042"` -> `"B1042"`), cleans street suffixes (`"Rd"`, `"Ave"`, `"St"`, `"Blvd"`), and normalizes intersection connectors (`"&"`).
-- **Name Parsing**: Robust parsing of `"Last, First"`, `"Officer First Last"`, `"Det. David Kowalski"`, separating `first_name`, `last_name`, and canonical `rank`.
+- **Peer group** — officers in the same agency and month. An officer is only
+  evaluated against at least 30 peers and needs at least 5 events of their own.
+- **Robust z-score** — median/MAD rather than mean/stddev, so one extreme
+  officer cannot inflate the spread and hide everyone else.
+- **Event volume** — exact Poisson upper tail, not a normal approximation.
+- **Out-of-policy rate** — exact one-sided binomial in log space.
+- **Severity** — `high` at p < 0.01 and z ≥ 3; `elevated` at p < 0.05 and z ≥ 2.
 
-### 3. Evidence Extraction Layer
-- **High-Efficiency Rule-Based NER**: Precompiled, zero-overhead regex matchers optimized for low-memory Railway environments (no heavy GPU/PyTorch dependencies).
-- **Law Enforcement Personnel**: Extracts officer names, ranks (`Officer`, `Detective`, `Sergeant`, `Lieutenant`, `Captain`, `Chief`, `Deputy`, `Trooper`), badge numbers, and employee IDs from unstructured text.
-- **Incident & CAD Extraction**: Identifies incident numbers, case files, CAD event numbers, and cross streets.
-- **Force Taxonomy**: Classifies use of force events into standardized categories (`firearm_discharge`, `conducted_energy_weapon`, `physical_restraint`, `impact_weapon`, `chemical_agent`, `canine_deployment`, `vehicle_pursuit`).
-- **Statutory & Legal Citations**: Detects Arizona Revised Statutes (`ARS 13-1204`, `ARS 13-2904`, `ARS 28-693`, `ARS 13-3407`, `ARS 13-1502`) with automated charge title enrichment and severity labeling (`Felony` / `Misdemeanor`), Brady list disclosures, Rule 15.1 disclosures, Section 1983 claims, and court docket numbers.
+Every finding persists its numerator, denominator, peer median, peer MAD,
+z-score, p-value, plain-language narrative and clickable source links.
 
-### 4. Topological Synthesis & Entity Linking
-- Maps normalized payloads and extracted evidence into core entity tables (`Incident`, `Officer`, `Arrest`, `Charge`, `CourtCase`, `Document`, `NewsArticle`, `SurveillanceEvent`).
-- Creates bidirectional `EntityLink` records connecting officers to incidents (`involved_in`), staging records to entities (`derived_from`), and news/court articles to incidents (`reports_on`, `evidence_for`).
+## Monthly archive
 
-## Database Schema
+`build_view()` produces one payload. Its SHA-256 (excluding the volatile
+`generated_at` timestamp) is the archive key:
 
-Key tables:
-- **data_sources**: Registry of all configured sources with schedule and status.
-- **raw_records**: Immutable snapshots of ingested data with SHA-256 checksums.
-- **staging_records**: Intermediate normalized records with status tracking (`pending`, `suspended`, `ready`, `synthesized`, `failed`).
-- **pending_synthesis**: Tracks unresolved cross-system dependencies.
-- **agencies**: Law enforcement agencies with external ID mappings.
-- **officers**: Individual officers linked to agencies via badge/employee IDs.
-- **persons**: Subjects referenced across records.
-- **incidents**: Events linked to agencies with temporal, spatial, and evidentiary data.
-- **arrests**: Arrest records linked to incidents and persons.
-- **charges**: Criminal charges linked to arrests (enriched with ARS statutes).
-- **court_cases**: Court dockets with case numbers.
-- **documents**: Ingested document text and metadata.
-- **news_articles**: News feed entries with URLs, publication dates, and incident links.
-- **surveillance_events**: Surveillance technology events (ALPR, etc.).
-- **internal_affairs_cases**: Internal affairs investigations.
-- **monitor_reports**: Federal monitor compliance reports.
-- **entity_links**: Explicit relational links between lattice entities with confidence scores.
-- **synthesis_runs**: Audit trail of synthesis execution history.
+- same hash → `unchanged`, the row is never rewritten
+- changed content → `revision + 1`, the previous row flips `is_current`
+- **no row is ever mutated or deleted**
 
-## API Endpoints
+`/api/month/{period}` serves the sealed payload when one exists, so a
+historical month renders with exactly the same structure as the live one —
+same top-level keys, same chart shapes, same table columns. Switching months
+is a single payload swap against a fixed DOM, so nothing shifts on redraw.
 
-| Method | Path                 | Description                                      |
-|--------|----------------------|--------------------------------------------------|
-| GET    | `/`                  | Interactive Web UI Dashboard                     |
-| GET    | `/health`            | Health check with staging record count            |
-| POST   | `/pipeline/run-full` | Run end-to-end Acquisition -> Synthesis pipeline  |
-| POST   | `/ingest/run`        | Trigger ingestion adapters                       |
-| POST   | `/synthesis/run`     | Execute synthesis of staging records             |
-| POST   | `/resolve/pending`   | Attempt to resolve suspended dependencies         |
-| GET    | `/incidents`         | List incidents (paginated, newest first)          |
-| GET    | `/officers`          | List officers (paginated)                         |
-| GET    | `/links`             | List entity links (paginated)                     |
-| GET    | `/staging/suspended` | List suspended staging records                    |
-
-## Setup and Run
-
-### Local Development
+## Running it
 
 ```bash
-# Clone repository
-git clone <repository-url> policelattice
-cd policelattice
-
-# Copy environment configuration
-cp .env.example .env
-
-# Install dependencies (Poetry)
 poetry install
-
-# Initialize database schema
-poetry run python -m app.api.scripts.init_db
-
-# Start FastAPI server (includes scheduler & automated startup pipeline)
-poetry run uvicorn app.api.main:app --reload
+uvicorn app.api.main:app --host 0.0.0.0 --port 8000
 ```
 
-### Docker & Railway Deployment
+On Railway a Postgres plugin supplies `DATABASE_URL`; without one the app
+falls back to SQLite under `./data` so a local run works with no setup.
+
+### Verify the sources yourself
 
 ```bash
-docker compose up -d
+python -m scripts.verify_sources                      # probe all of them
+python -m scripts.verify_sources --source phoenix_ckan_uof --rows 3
 ```
-The Docker container automatically initializes the database, ingests seed drop data, synthesizes entities, starts background cron scheduling, and serves the web dashboard and API on port 8000.
+
+This makes real requests and prints the HTTP status, the row count each source
+advertises, and sample rows so you can see the actual column names. Nothing is
+cached or stubbed.
+
+### Tests
+
+```bash
+poetry run pytest        # 118 tests
+poetry run ruff check app tests scripts
+```
+
+The CKAN transport test runs a real HTTP server on localhost and serves
+recorded Phoenix payloads through the actual `httpx`/adapter/SQLAlchemy path.
+The synthetic officer fixture is test-only, is never reachable from `app/`,
+and `tests/test_no_fabrication.py` statically enforces that.
+
+## Sources
+
+17 sources across four adapters: CKAN (Phoenix), ArcGIS Hub (Tempe), HTTP
+tabular (national CSVs), RSS (local news). `app/source_catalog.yaml` records,
+for each entry, whether the endpoint was verified by hand, and the date,
+status code, row count and field names observed at that time. Anything not
+hand-verified is marked `verified: runtime` and is probed on every run, with
+the true result written to `fetch_logs` and shown in the UI.
+
+Two coverage gaps are published rather than papered over:
+
+- Phoenix **Adult Arrests** covers Jan 2018 – Dec 2025; updates are
+  unavailable from Jan 2026 while the city moves from SRS to NIBRS.
+- Phoenix **Use of Force** has a documented ~3-month publication lag.
+
+## What this environment cannot do
+
+The sandbox this was developed in has outbound access to `pypi.org` only.
+Live CKAN, ArcGIS, national CSV and RSS endpoints are all unreachable from
+here, and the embedding model cannot be downloaded. End-to-end acquisition,
+anomaly detection on real officer data, and the UI rendering were therefore
+**not** exercised in the sandbox. Run `scripts/verify_sources.py` on a machine
+with internet access to confirm the live path before trusting any figure.

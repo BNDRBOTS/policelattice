@@ -3,19 +3,16 @@ __pycache__/
 *$py.class
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 .venv/
-env/
 venv/
+env/
 .env
-*.db
-*.db-shm
-*.db-wal
+
+# Runtime state. Nothing here is source data: the lattice is re-fetched live.
 data/*.db
 data/*.db-shm
 data/*.db-wal
-data/ocr_output/*
-!data/ocr_output/.gitkeep
-data/manual_drops/*
-!data/manual_drops/.gitkeep
-!data/manual_drops/*.csv
-!data/manual_drops/*.json
+data/models/
+data/ocr_output/
+nettest/
