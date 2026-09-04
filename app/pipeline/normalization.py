@@ -171,10 +171,15 @@ def normalize_datetime(value: Any) -> datetime | None:
     return None
 
 
-def normalize_agency_name(name: Any) -> str:
-    """Standardize agency name to canonical Title Case naming convention."""
+def normalize_agency_name(name: Any) -> str | None:
+    """Standardize agency name to canonical Title Case naming convention.
+
+    Returns None when no agency is stated in the source data. Callers must
+    surface the absence explicitly (e.g. "Unattributed Agency") — they must
+    never substitute a real agency name the source did not provide.
+    """
     if not name:
-        return "Phoenix Police Department"
+        return None
     val = _WS_RE.sub(" ", str(name)).strip()
     lower_val = val.lower()
     return AGENCY_CANONICAL_MAP.get(lower_val, val)
@@ -400,7 +405,7 @@ class CanonicalNormalizer:
         if not last_name and data.get("last_name"):
             last_name = str(data.get("last_name")).strip()
 
-        rank = data.get("rank") or detected_rank or "Officer"
+        rank = data.get("rank") or detected_rank
         if isinstance(rank, str) and rank.lower().rstrip(".") in RANK_EXPANSIONS:
             rank = RANK_EXPANSIONS[rank.lower().rstrip(".")]
 
@@ -413,7 +418,7 @@ class CanonicalNormalizer:
             "last_name": last_name,
             "rank": rank,
             "agency_name": agency,
-            "status": data.get("status") or "Active",
+            "status": data.get("status"),
             "notes": data.get("notes"),
             "external_ids": {
                 "source_id": source_id,
@@ -516,16 +521,16 @@ class CanonicalNormalizer:
             or data.get("docket_no")
             or data.get("id")
         )
-        court = data.get("court") or "Maricopa County Superior Court"
+        court = data.get("court")
         dt = normalize_datetime(data.get("date_filed") or data.get("filed_at"))
-        status = data.get("status") or "Active"
+        status = data.get("status")
         title = data.get("title") or data.get("case_name") or f"Case {docket}"
 
         return {
             "case_number": docket,
-            "court": str(court),
+            "court": str(court) if court else None,
             "filed_at": dt.isoformat() if dt else None,
-            "status": str(status),
+            "status": str(status) if status else None,
             "title": str(title),
             "external_ids": {
                 "source_id": source_id,

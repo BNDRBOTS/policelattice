@@ -632,7 +632,7 @@ function renderIncidents(rows) {
     }
     tbody.innerHTML = rows.map(r => `
         <tr>
-            <td class="mono">${esc(r.incident_number ?? `INC-${r.id}`)}</td>
+            <td class="mono">${esc(r.incident_number ?? "no number recorded")}</td>
             <td>${esc(r.incident_type ?? "—")}</td>
             <td class="mono">${esc(r.occurred_at ?? "—")}</td>
             <td>${esc(r.location ?? "not recorded")}</td>

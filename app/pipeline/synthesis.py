@@ -160,9 +160,12 @@ class SynthesisEngine:
                     self.session, staging.id, "Missing incident_number and essential attributes"
                 )
                 return
-            incident_number = f"INC-{staging.source_id}-{staging.id}"
+            # No source-issued number exists. Record the absence honestly and
+            # carry a clearly-labeled pipeline reference (never presented as an
+            # official incident number).
+            incident_number = None
 
-        agency_name = canonical.get("agency_name") or "Phoenix Police Department"
+        agency_name = canonical.get("agency_name")
         agency = self._get_or_create_agency(agency_name)
 
         occurred_at = normalize_datetime(
@@ -180,8 +183,14 @@ class SynthesisEngine:
             "evidence": evidence,
         }
 
-        # Check if an incident with this incident number already exists (deduplication & enrichment)
-        existing_inc = self._find_incident_by_number(str(incident_number))
+        # Check if an incident with this incident number already exists
+        # (deduplication & enrichment). Records without a source-issued number
+        # are always new entities — no fabricated join keys.
+        existing_inc = (
+            self._find_incident_by_number(str(incident_number))
+            if incident_number
+            else None
+        )
         if existing_inc:
             if occurred_at and not existing_inc.occurred_at:
                 existing_inc.occurred_at = occurred_at
@@ -192,15 +201,20 @@ class SynthesisEngine:
                 existing_inc.data = merged_data
             incident = existing_inc
         else:
+            external_ids = {
+                "source_id": staging.source_id,
+                # clearly-labeled pipeline reference; distinct from any
+                # source-issued identifier
+                "internal_ref": f"lattice-staging-{staging.id}",
+            }
+            if incident_number:
+                external_ids["incident_number"] = str(incident_number)
             incident = Incident(
                 agency_id=agency.id,
-                incident_type=staging.entity_type or canonical.get("incident_type", "incident"),
+                incident_type=staging.entity_type or canonical.get("incident_type"),
                 occurred_at=occurred_at,
                 location=loc,
-                external_ids={
-                    "source_id": staging.source_id,
-                    "incident_number": str(incident_number),
-                },
+                external_ids=external_ids,
                 data=incident_data,
             )
             self.session.add(incident)
@@ -344,10 +358,11 @@ class SynthesisEngine:
         if not officer and officer_badge:
             officer = self._find_officer_by_key("badge_number", officer_badge)
 
-        agency_name = canonical.get("agency_name", "Phoenix Police Department")
+        agency_name = canonical.get("agency_name")
         agency = self._get_or_create_agency(agency_name)
 
-        # If officer is not yet registered, create placeholder officer so UOF is synthesized
+        # If officer is not yet registered, create the officer entity strictly
+        # from values present in the source record.
         if not officer and (officer_badge or officer_employee_id):
             officer = Officer(
                 agency_id=agency.id,
@@ -355,7 +370,7 @@ class SynthesisEngine:
                 employee_id=str(officer_employee_id) if officer_employee_id else None,
                 first_name=canonical.get("officer_first_name"),
                 last_name=canonical.get("officer_last_name") or canonical.get("officer_name"),
-                status="Active",
+                status=None,
                 external_ids={"source_id": staging.source_id},
             )
             self.session.add(officer)
@@ -421,10 +436,21 @@ class SynthesisEngine:
             badge = evidence["officers"][0].get("badge_number")
             employee_id = evidence["officers"][0].get("employee_id")
 
-        if not badge and not employee_id:
-            badge = f"OFF-{staging.source_id}-{staging.id}"
+        first_name = canonical.get("first_name")
+        last_name = canonical.get("last_name") or canonical.get("officer_name")
 
-        agency_name = canonical.get("agency_name", "Phoenix Police Department")
+        if not badge and not employee_id and not (first_name or last_name):
+            # No joinable identity and no name in the source record: suspend
+            # honestly rather than inventing an identifier.
+            suspend_staging(
+                self.session,
+                staging.id,
+                "Officer record lacks badge number, employee ID, and name; "
+                "no identity can be asserted from source data",
+            )
+            return
+
+        agency_name = canonical.get("agency_name")
         agency = self._get_or_create_agency(agency_name)
 
         # Check if officer with badge or employee ID already exists (deduplication & enrichment)
@@ -444,7 +470,7 @@ class SynthesisEngine:
             if isinstance(existing_officer.external_ids, dict):
                 existing_officer.external_ids = {
                     **existing_officer.external_ids,
-                    "rank": canonical.get("rank", "Officer"),
+                    "rank": canonical.get("rank"),
                     "notes": canonical.get("notes"),
                     "source_id": staging.source_id,
                 }
@@ -453,16 +479,16 @@ class SynthesisEngine:
         else:
             officer = Officer(
                 agency_id=agency.id,
-                first_name=canonical.get("first_name"),
-                last_name=canonical.get("last_name"),
+                first_name=first_name,
+                last_name=last_name,
                 badge_number=str(badge) if badge else None,
                 employee_id=str(employee_id) if employee_id else None,
                 external_ids={
                     "source_id": staging.source_id,
-                    "rank": canonical.get("rank", "Officer"),
+                    "rank": canonical.get("rank"),
                     "notes": canonical.get("notes"),
                 },
-                status=canonical.get("status", "Active"),
+                status=canonical.get("status"),
             )
             self.session.add(officer)
             self.session.flush()
@@ -496,9 +522,9 @@ class SynthesisEngine:
 
         court_case = CourtCase(
             case_number=str(case_number),
-            court=canonical.get("court", "Maricopa County Superior Court"),
+            court=canonical.get("court"),
             filed_at=normalize_datetime(canonical.get("filed_at") or canonical.get("date_filed")),
-            status=canonical.get("status", "Active"),
+            status=canonical.get("status"),
             external_ids={"source_id": staging.source_id},
         )
         self.session.add(court_case)
