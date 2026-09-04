@@ -42,14 +42,16 @@ def test_root_ui_endpoint():
     assert "Run Full Pipeline" in response.text
 
 
-def test_api_directory_endpoint():
-    response = client.get("/api")
+def test_analytics_endpoint():
+    response = client.get("/api/analytics")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "online"
-    assert data["name"] == "Police Lattice API"
-    assert "documentation" in data
-    assert "endpoints" in data
+    assert "summary" in data
+    assert "timeline" in data
+    assert "force_taxonomy" in data
+    assert "agency_distribution" in data
+    assert "graph_topology" in data
+    assert data["summary"]["sources"] >= 60
 
 
 def test_sources_endpoint():

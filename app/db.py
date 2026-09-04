@@ -55,6 +55,8 @@ def init_database_with_retry(max_retries: int = 10, retry_delay: int = 3) -> boo
     Retries up to `max_retries` times to handle cold starts and container
     orchestration delays in environments like Railway and Docker Compose.
     """
+    import app.models  # noqa: F401 - Register all models with Base.metadata
+
     raw_url = settings.database_url
     db_target = raw_url.split("@")[-1] if "@" in raw_url else raw_url
     for attempt in range(1, max_retries + 1):

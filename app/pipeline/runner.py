@@ -132,6 +132,8 @@ def _is_source_due(schedule_expr: str | None, last_run_at: datetime | None, now:
 
     # Cron expression matches current minute. Check if already run recently.
     if last_run_at is not None:
+        if last_run_at.tzinfo is None:
+            last_run_at = last_run_at.replace(tzinfo=UTC)
         elapsed = (now - last_run_at).total_seconds()
         if elapsed < 600:  # Less than 10 minutes since last run
             return False

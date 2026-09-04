@@ -591,6 +591,7 @@ sources:
     availability_window: continuous 30-minute intervals
     config:
       url_env: ABC15_RSS_URL
+    entity_type: news
 
   - id: azcentral
     name: AZCentral / The Arizona Republic
@@ -601,6 +602,7 @@ sources:
     availability_window: continuous 30-minute intervals
     config:
       url_env: AZCENTRAL_RSS_URL
+    entity_type: news
 
   - id: fox10_phoenix
     name: FOX 10 Phoenix
@@ -611,6 +613,7 @@ sources:
     availability_window: continuous 30-minute intervals
     config:
       url_env: FOX10_RSS_URL
+    entity_type: news
 
   - id: ktar_news
     name: KTAR News 92.3 FM
@@ -621,6 +624,7 @@ sources:
     availability_window: continuous 30-minute intervals
     config:
       url_env: KTAR_RSS_URL
+    entity_type: news
 
   - id: tempe_news
     name: Tempe News
@@ -631,6 +635,7 @@ sources:
     availability_window: continuous 30-minute intervals
     config:
       url_env: TEMPE_NEWS_RSS_URL
+    entity_type: news
 
   - id: propublica
     name: ProPublica
@@ -641,6 +646,7 @@ sources:
     availability_window: hourly
     config:
       url_env: PROPUBLICA_RSS_URL
+    entity_type: news
 
   - id: cronkite_news
     name: Cronkite News ASU
@@ -651,6 +657,7 @@ sources:
     availability_window: hourly
     config:
       url_env: CRONKITE_RSS_URL
+    entity_type: news
 
   - id: phoenix_new_times
     name: Phoenix New Times
@@ -661,6 +668,7 @@ sources:
     availability_window: hourly
     config:
       url_env: PHOENIX_NEW_TIMES_RSS_URL
+    entity_type: news
 
   - id: az_free_news
     name: AZ Free News
@@ -671,6 +679,7 @@ sources:
     availability_window: hourly
     config:
       url_env: AZ_FREE_NEWS_RSS_URL
+    entity_type: news
 
   - id: mapping_police_violence
     name: Mapping Police Violence

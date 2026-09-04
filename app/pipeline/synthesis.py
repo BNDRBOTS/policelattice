@@ -170,28 +170,40 @@ class SynthesisEngine:
             or canonical.get("occurred_dt")
         )
 
+        loc = canonical.get("location")
+        if not loc and evidence.get("locations"):
+            loc = evidence["locations"][0]
+
         incident_data = {
             **canonical,
             "evidence": evidence,
         }
 
-        loc = canonical.get("location")
-        if not loc and evidence.get("locations"):
-            loc = evidence["locations"][0]
-
-        incident = Incident(
-            agency_id=agency.id,
-            incident_type=staging.entity_type or canonical.get("incident_type", "incident"),
-            occurred_at=occurred_at,
-            location=loc,
-            external_ids={
-                "source_id": staging.source_id,
-                "incident_number": str(incident_number),
-            },
-            data=incident_data,
-        )
-        self.session.add(incident)
-        self.session.flush()
+        # Check if an incident with this incident number already exists (deduplication & enrichment)
+        existing_inc = self._find_incident_by_number(str(incident_number))
+        if existing_inc:
+            if occurred_at and not existing_inc.occurred_at:
+                existing_inc.occurred_at = occurred_at
+            if loc and not existing_inc.location:
+                existing_inc.location = loc
+            if isinstance(existing_inc.data, dict):
+                merged_data = {**existing_inc.data, **incident_data}
+                existing_inc.data = merged_data
+            incident = existing_inc
+        else:
+            incident = Incident(
+                agency_id=agency.id,
+                incident_type=staging.entity_type or canonical.get("incident_type", "incident"),
+                occurred_at=occurred_at,
+                location=loc,
+                external_ids={
+                    "source_id": staging.source_id,
+                    "incident_number": str(incident_number),
+                },
+                data=incident_data,
+            )
+            self.session.add(incident)
+            self.session.flush()
 
         # Link staging -> incident
         self._link_entity(
@@ -352,19 +364,29 @@ class SynthesisEngine:
             canonical.get("occurred_at") or canonical.get("date_time")
         )
 
-        incident = Incident(
-            agency_id=agency.id,
-            incident_type=staging.entity_type or canonical.get("force_type", "use_of_force"),
-            occurred_at=occurred_at,
-            location=canonical.get("location"),
-            external_ids={
-                "source_id": staging.source_id,
-                "incident_number": str(incident_number),
-            },
-            data={**canonical, "evidence": evidence},
-        )
-        self.session.add(incident)
-        self.session.flush()
+        existing_inc = self._find_incident_by_number(str(incident_number))
+        if existing_inc:
+            if occurred_at and not existing_inc.occurred_at:
+                existing_inc.occurred_at = occurred_at
+            if canonical.get("location") and not existing_inc.location:
+                existing_inc.location = canonical.get("location")
+            if isinstance(existing_inc.data, dict):
+                existing_inc.data = {**existing_inc.data, **canonical, "evidence": evidence}
+            incident = existing_inc
+        else:
+            incident = Incident(
+                agency_id=agency.id,
+                incident_type=staging.entity_type or canonical.get("force_type", "use_of_force"),
+                occurred_at=occurred_at,
+                location=canonical.get("location"),
+                external_ids={
+                    "source_id": staging.source_id,
+                    "incident_number": str(incident_number),
+                },
+                data={**canonical, "evidence": evidence},
+            )
+            self.session.add(incident)
+            self.session.flush()
 
         self._link_entity(
             "staging",
@@ -401,20 +423,48 @@ class SynthesisEngine:
         if not badge and not employee_id:
             badge = f"OFF-{staging.source_id}-{staging.id}"
 
-        agency_name = canonical.get("agency_name", "Unknown")
+        agency_name = canonical.get("agency_name", "Phoenix Police Department")
         agency = self._get_or_create_agency(agency_name)
 
-        officer = Officer(
-            agency_id=agency.id,
-            first_name=canonical.get("first_name"),
-            last_name=canonical.get("last_name"),
-            badge_number=str(badge) if badge else None,
-            employee_id=str(employee_id) if employee_id else None,
-            external_ids={"source_id": staging.source_id},
-            status=canonical.get("status", "Active"),
-        )
-        self.session.add(officer)
-        self.session.flush()
+        # Check if officer with badge or employee ID already exists (deduplication & enrichment)
+        existing_officer = None
+        if badge:
+            existing_officer = self._find_officer_by_key("badge_number", badge)
+        if not existing_officer and employee_id:
+            existing_officer = self._find_officer_by_key("employee_id", employee_id)
+
+        if existing_officer:
+            if canonical.get("first_name"):
+                existing_officer.first_name = canonical.get("first_name")
+            if canonical.get("last_name"):
+                existing_officer.last_name = canonical.get("last_name")
+            if canonical.get("status"):
+                existing_officer.status = canonical.get("status")
+            if isinstance(existing_officer.external_ids, dict):
+                existing_officer.external_ids = {
+                    **existing_officer.external_ids,
+                    "rank": canonical.get("rank", "Officer"),
+                    "notes": canonical.get("notes"),
+                    "source_id": staging.source_id,
+                }
+            existing_officer.agency_id = agency.id
+            officer = existing_officer
+        else:
+            officer = Officer(
+                agency_id=agency.id,
+                first_name=canonical.get("first_name"),
+                last_name=canonical.get("last_name"),
+                badge_number=str(badge) if badge else None,
+                employee_id=str(employee_id) if employee_id else None,
+                external_ids={
+                    "source_id": staging.source_id,
+                    "rank": canonical.get("rank", "Officer"),
+                    "notes": canonical.get("notes"),
+                },
+                status=canonical.get("status", "Active"),
+            )
+            self.session.add(officer)
+            self.session.flush()
 
         self._link_entity(
             "staging",
