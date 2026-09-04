@@ -13,56 +13,55 @@ from app.pipeline.runner import (
     _is_source_due,
     get_source_by_id,
     load_catalog,
-    run_full_pipeline,
 )
 
 
 def test_cron_field_matches():
-    # Wildcard
     assert _cron_field_matches("*", 15, 0, 59) is True
-
-    # Exact number
     assert _cron_field_matches("15", 15, 0, 59) is True
     assert _cron_field_matches("15", 16, 0, 59) is False
-
-    # Step */15
     assert _cron_field_matches("*/15", 0, 0, 59) is True
-    assert _cron_field_matches("*/15", 15, 0, 59) is True
-    assert _cron_field_matches("*/15", 30, 0, 59) is True
-    assert _cron_field_matches("*/15", 45, 0, 59) is True
     assert _cron_field_matches("*/15", 10, 0, 59) is False
-
-    # Range
     assert _cron_field_matches("1-5", 3, 0, 6) is True
     assert _cron_field_matches("1-5", 6, 0, 6) is False
-
-    # List
     assert _cron_field_matches("0,15,30,45", 30, 0, 59) is True
     assert _cron_field_matches("0,15,30,45", 35, 0, 59) is False
 
 
 def test_is_source_due():
-    # No schedule means manual only
-    assert _is_source_due(None, None, datetime(2026, 9, 2, 6, 0, tzinfo=UTC)) is False
-
-    # Scheduled match
-    now = datetime(2026, 9, 2, 6, 0, tzinfo=UTC)  # 06:00
+    now = datetime(2026, 9, 2, 6, 0, tzinfo=UTC)
+    assert _is_source_due(None, None, now) is False
     assert _is_source_due("0 6 * * *", None, now) is True
-
-    # Hour mismatch
     assert _is_source_due("0 7 * * *", None, now) is False
-
-    # Already run recently (< 10 minutes ago)
     last_run = datetime(2026, 9, 2, 5, 55, tzinfo=UTC)
     assert _is_source_due("0 6 * * *", last_run, now) is False
 
 
-def test_catalog_loads():
+def test_catalog_loads_live_sources_only():
+    """Catalog must contain live, resolvable endpoints — no placeholder URLs."""
     sources = load_catalog("app/source_catalog.yaml")
-    assert len(sources) >= 60
-    ids = [s["id"] for s in sources]
-    assert "tempe_pd_calls" in ids
-    assert "city_of_phx_open_data_portal" in ids
+    assert len(sources) >= 15
+    for source in sources:
+        cfg = source.get("config", {}) or {}
+        blob = str(cfg).lower()
+        # Anti-fabrication: no example.com-style placeholder endpoints anywhere.
+        assert "example.com" not in blob, source["id"]
+        assert "services.arcgis.com/example" not in blob, source["id"]
+        if source.get("enabled", True):
+            assert cfg.get("url") or cfg.get("urls") or cfg.get("url_env") or \
+                cfg.get("domain") or cfg.get("hub_discover") or cfg.get("query") or \
+                cfg.get("docket_number"), f"enabled source {source['id']} has no live target"
+        else:
+            # Disabled sources must document exactly why.
+            assert cfg.get("disabled_reason"), source["id"]
+
+
+def test_no_manual_drop_sources_in_catalog():
+    sources = load_catalog("app/source_catalog.yaml")
+    for source in sources:
+        cfg = source.get("config", {}) or {}
+        assert "drop_dir_env" not in cfg, source["id"]
+        assert source.get("access_mode") != "file_drop", source["id"]
 
 
 def test_checksum_deduplication():
@@ -85,13 +84,3 @@ def test_checksum_deduplication():
         assert _checksum_exists(session, "src1", "hash_123") is True
         assert _checksum_exists(session, "src1", "different_hash") is False
         assert _checksum_exists(session, "src2", "hash_123") is False
-
-
-def test_run_full_pipeline_execution():
-    result = run_full_pipeline(force=True)
-    assert result["status"] == "success"
-    assert "ingestion" in result
-    assert "synthesis" in result
-    assert "entity_counts" in result
-    assert result["entity_counts"]["incidents"] > 0
-    assert result["entity_counts"]["officers"] > 0

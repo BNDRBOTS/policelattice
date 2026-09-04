@@ -1,19 +1,25 @@
+"""Live RSS/Atom news ingestion.
+
+``feedparser`` is the reference-standard Python RSS/Atom parser (robust against
+malformed feeds, handles RSS 1.0/2.0, Atom, and RDF). Feeds are downloaded
+live; entries are preserved in full (no truncation of summaries).
+"""
+
 from __future__ import annotations
 
+import logging
 import os
 
 import feedparser
-import requests
 
 from app.ingestion.base import BaseAdapter, RawRecordDTO
+from app.ingestion.http_client import LiveSourceError, get_fetch_client
+
+logger = logging.getLogger(__name__)
 
 
 class NewsRssAdapter(BaseAdapter):
-    """Ingests RSS feeds from news outlets.
-
-    Autonomously uses configured environment variables or verified public feed
-    endpoints with strict timeout protection for efficient compute.
-    """
+    """Ingests RSS/Atom feeds live from configured public feed URLs."""
 
     name = "news_rss"
     access_mode = "rss"
@@ -27,48 +33,44 @@ class NewsRssAdapter(BaseAdapter):
                 or os.getenv(url_env)
                 or self.source_config.get(url_env.lower())
             )
-
-        if not url and url_env:
-            from app.pipeline.acquisition import DEFAULT_PUBLIC_URLS
-            url = DEFAULT_PUBLIC_URLS.get(url_env)
-
         if not url:
-            self.log_skip(f"RSS URL env {url_env} not set")
+            url = self.source_config.get("url")
+        if not url:
+            self.log_skip(f"No RSS URL configured (env {url_env})")
             return []
 
         try:
-            resp = requests.get(
-                url,
-                timeout=6,
-                headers={"User-Agent": "PoliceLattice/1.0 (+https://github.com/BNDRBOTS/policelattice)"},
-            )
-            if resp.status_code != 200:
-                self.log_skip(f"RSS HTTP {resp.status_code} for {url}")
-                return []
-            feed = feedparser.parse(resp.content)
-        except Exception as exc:
-            self.log_skip(f"RSS fetch error for {url}: {exc}")
+            body = get_fetch_client().get_bytes(url)
+        except LiveSourceError as exc:
+            self.log_skip(f"RSS fetch failed for {url}: {exc}")
             return []
 
+        feed = feedparser.parse(body)
         if feed.bozo and not feed.entries:
             self.log_skip(f"RSS parse error for {url}: {feed.bozo_exception}")
             return []
 
-        records = []
+        records: list[RawRecordDTO] = []
         for entry in feed.entries:
             payload = {
                 "title": entry.get("title"),
                 "link": entry.get("link"),
                 "published": entry.get("published"),
+                "updated": entry.get("updated"),
                 "summary": entry.get("summary"),
                 "author": entry.get("author"),
+                "tags": [t.get("term") for t in entry.get("tags", []) if t.get("term")],
             }
             records.append(
                 RawRecordDTO(
                     content_type="application/rss+xml",
                     payload={"entry": payload},
                     source_id=self.source_config.get("id"),
-                    metadata={"adapter": self.name, "feed_url": url},
+                    metadata={
+                        "adapter": self.name,
+                        "feed_url": url,
+                        "live_url": entry.get("link") or url,
+                    },
                 )
             )
         return records

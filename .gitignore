@@ -10,12 +10,8 @@ venv/
 *.db
 *.db-shm
 *.db-wal
-data/*.db
-data/*.db-shm
-data/*.db-wal
-data/ocr_output/*
-!data/ocr_output/.gitkeep
-data/manual_drops/*
-!data/manual_drops/.gitkeep
-!data/manual_drops/*.csv
-!data/manual_drops/*.json
+data/
+!data/.gitkeep
+ocr_output
+police_lattice.db
+police-lattice.lock

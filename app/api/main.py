@@ -1,17 +1,28 @@
+"""Police Lattice API — live pipeline control, month-parity analytics,
+immutable archive access, and hybrid retrieval."""
+
 from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import Depends, FastAPI, Query
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dashboard import get_dashboard_html
 from app.db import SessionLocal, init_database_with_retry
-from app.models import Agency, Arrest, Charge, EntityLink, Incident, Officer, StagingRecord
+from app.models import (
+    EntityLink,
+    Incident,
+    MonthlyArchiveFile,
+    Officer,
+    PipelineRun,
+    StagingRecord,
+)
 from app.pipeline.resolver import DependencyResolver
 from app.pipeline.runner import load_catalog, run_all_sources, run_full_pipeline
 from app.pipeline.scheduler import build_scheduler
@@ -26,24 +37,30 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize database connection and schema
     init_database_with_retry()
-    logger.info("Database schema initialized")
+    logger.info("Database schema initialized (incl. archive immutability guards)")
 
-    # Run automated initial pipeline pass on startup
-    try:
-        startup_results = run_full_pipeline(force=True)
-        logger.info(
-            "Initial pipeline run completed: %d new records, %d entities synthesized",
-            startup_results.get("ingestion", {}).get("total_new_records", 0),
-            startup_results.get("synthesis", {}).get("processed", 0),
-        )
-    except Exception as exc:
-        logger.warning("Initial startup pipeline run encountered error: %s", exc)
+    # Automated six-phase pipeline pass on startup (live sources only), run in
+    # a daemon thread so the HTTP server binds immediately (Railway cold-start
+    # friendly); results are audited in pipeline_runs either way.
+    import threading
+
+    def _startup_pipeline() -> None:
+        try:
+            startup_results = run_full_pipeline(trigger="startup")
+            logger.info(
+                "Startup pipeline run %s (run id %s)",
+                startup_results.get("status"),
+                startup_results.get("pipeline_run_id"),
+            )
+        except Exception as exc:
+            logger.warning("Initial startup pipeline run encountered error: %s", exc)
+
+    threading.Thread(target=_startup_pipeline, name="startup-pipeline", daemon=True).start()
 
     scheduler = build_scheduler()
     scheduler.start()
-    logger.info("Scheduler started successfully")
+    logger.info("Scheduler started (15-min due runner + monthly refresh protocol)")
     yield
     scheduler.shutdown()
     logger.info("Scheduler stopped")
@@ -51,8 +68,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Police Lattice API",
-    description="Topological ingestion and synthesis lattice for police accountability data",
-    version="0.1.0",
+    description=(
+        "Autonomous six-phase pipeline (Search -> Gather -> Organize -> Process -> "
+        "Verify -> Synthesize) for police accountability data. Live external "
+        "sources only; immutable monthly chron-archive; officer anomaly detection "
+        "with exact statistics; hybrid semantic+lexical+literal retrieval."
+    ),
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -67,27 +89,29 @@ def get_db():
 
 @app.get("/", response_class=HTMLResponse)
 def root_ui() -> HTMLResponse:
-    """Serve the interactive web UI dashboard."""
+    """Serve the interactive web dashboard."""
     return HTMLResponse(content=get_dashboard_html())
 
 
 @app.get("/api")
 def api_directory() -> dict[str, Any]:
-    """API metadata and endpoints directory."""
     return {
         "name": "Police Lattice API",
-        "version": "0.1.0",
-        "status": "online",
-        "documentation": {
-            "swagger": "/docs",
-            "redoc": "/redoc",
-            "openapi": "/openapi.json",
-        },
+        "version": "2.0.0",
+        "operation_sequence": ["search", "gather", "organize", "process", "verify", "synthesize"],
+        "documentation": {"swagger": "/docs", "redoc": "/redoc"},
         "endpoints": {
-            "dashboard_ui": "/",
             "health": "/health",
             "sources": "/sources",
-            "full_pipeline": "/pipeline/run-full (POST)",
+            "analytics": "/api/analytics?month=YYYY-MM (omit month for live current)",
+            "months": "/api/months",
+            "anomalies": "/api/analytics/anomalies?month=YYYY-MM",
+            "search": "/api/search?q=...&mode=hybrid|lexical|semantic|literal",
+            "archive_files": "/api/archive/files?month=YYYY-MM",
+            "archive_download": "/api/archive/file/{id}",
+            "archive_refresh": "/archive/refresh (POST)",
+            "pipeline_runs": "/pipeline/runs",
+            "run_full_pipeline": "/pipeline/run-full (POST)",
             "ingest_run": "/ingest/run (POST)",
             "synthesis_run": "/synthesis/run (POST)",
             "resolve_pending": "/resolve/pending (POST)",
@@ -99,185 +123,286 @@ def api_directory() -> dict[str, Any]:
     }
 
 
-@app.get("/sources")
-def list_sources() -> list[dict[str, Any]]:
-    """List all configured data sources in the catalog."""
-    return load_catalog()
-
-
 @app.get("/health")
 def health(db: Session = Depends(get_db)) -> dict[str, Any]:
-    count = db.scalar(select(func.count()).select_from(StagingRecord))
-    return {"status": "ok", "staging_records": count or 0}
-
-
-@app.get("/api/analytics")
-def analytics(db: Session = Depends(get_db)) -> dict[str, Any]:
-    """Compute real dynamic visual analytics from actual database records."""
-    # 1. Total entity counts
-    incidents = db.scalars(select(Incident)).all()
-    officers = db.scalars(select(Officer)).all()
-    arrests = db.scalars(select(Arrest)).all()
-    charges = db.scalars(select(Charge)).all()
-    links = db.scalars(select(EntityLink)).all()
-    sources = load_catalog()
-    staging_count = db.scalar(select(func.count(StagingRecord.id))) or 0
-    suspended_count = db.scalar(
-        select(func.count(StagingRecord.id)).where(StagingRecord.status == "suspended")
-    ) or 0
-
-    # 2. Monthly Timeline Distribution
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    monthly_counts = {m: 0 for m in months}
-    monthly_fatalities = {m: 0 for m in months}
-
-    for inc in incidents:
-        if inc.occurred_at:
-            m_name = inc.occurred_at.strftime("%b")
-            if m_name in monthly_counts:
-                monthly_counts[m_name] += 1
-                itype = (inc.incident_type or "").lower()
-                data = inc.data or {}
-                has_death = "death" in itype or "fatal" in itype or "shooting" in itype
-                if has_death or data.get("cause_of_death"):
-                    monthly_fatalities[m_name] += 1
-
-    # 3. Force Tactics & Intervention Taxonomy
-    force_categories: dict[str, int] = {
-        "Firearm Discharge": 0,
-        "Conducted Energy Weapon (Taser)": 0,
-        "Physical Restraint": 0,
-        "Vehicle Intervention": 0,
-        "Impact Weapon (Baton)": 0,
-        "Chemical Agent": 0,
-    }
-
-    for inc in incidents:
-        data = inc.data or {}
-        raw_ftype = data.get("force_type") or data.get("incident_type") or inc.incident_type or ""
-        ftype = str(raw_ftype).lower()
-        if "firearm" in ftype or "shooting" in ftype or "gun" in ftype:
-            force_categories["Firearm Discharge"] += 1
-        elif "taser" in ftype or "cew" in ftype or "energy" in ftype:
-            force_categories["Conducted Energy Weapon (Taser)"] += 1
-        elif "restraint" in ftype or "asphyxia" in ftype:
-            force_categories["Physical Restraint"] += 1
-        elif "vehicle" in ftype or "pursuit" in ftype or "immobilization" in ftype:
-            force_categories["Vehicle Intervention"] += 1
-        elif "baton" in ftype or "impact" in ftype:
-            force_categories["Impact Weapon (Baton)"] += 1
-        else:
-            force_categories["Firearm Discharge"] += 1
-
-    # 4. Agency Accountability Distribution
-    agency_counts: dict[str, dict[str, int]] = {
-        "Phoenix Police Department": {"incidents": 0, "officers": 0, "arrests": 0},
-        "Tempe Police Department": {"incidents": 0, "officers": 0, "arrests": 0},
-        "Maricopa County Sheriff's Office": {"incidents": 0, "officers": 0, "arrests": 0},
-        "Arizona Department of Public Safety": {"incidents": 0, "officers": 0, "arrests": 0},
-    }
-
-    agencies = {a.id: a.name for a in db.scalars(select(Agency)).all()}
-
-    for inc in incidents:
-        aname = (
-            agencies.get(inc.agency_id)
-            or (inc.data or {}).get("agency_name")
-            or "Phoenix Police Department"
-        )
-        if aname in agency_counts:
-            agency_counts[aname]["incidents"] += 1
-        else:
-            agency_counts["Phoenix Police Department"]["incidents"] += 1
-
-    for off in officers:
-        aname = agencies.get(off.agency_id) or "Phoenix Police Department"
-        if aname in agency_counts:
-            agency_counts[aname]["officers"] += 1
-        else:
-            agency_counts["Phoenix Police Department"]["officers"] += 1
-
-    for _ in arrests:
-        agency_counts["Tempe Police Department"]["arrests"] += 1
-
-    # 5. Graph Topology Edge Distribution
-    edge_types: dict[str, int] = {}
-    for link in links:
-        rtype = link.relation_type.replace("_", " ").title()
-        edge_types[rtype] = edge_types.get(rtype, 0) + 1
-
-    top_labels = (
-        list(edge_types.keys())
-        if edge_types
-        else ["Derived From Staging", "Involved In", "Reports On"]
-    )
-    top_counts = list(edge_types.values()) if edge_types else [len(links), 0, 0]
-
+    staging = db.scalar(select(func.count()).select_from(StagingRecord)) or 0
+    raw = db.scalar(select(func.count()).select_from(MonthlyArchiveFile.__table__)) or 0
     return {
-        "summary": {
-            "sources": len(sources),
-            "staging_records": staging_count,
-            "incidents": len(incidents),
-            "officers": len(officers),
-            "arrests": len(arrests),
-            "charges": len(charges),
-            "relational_links": len(links),
-            "suspended": suspended_count,
-        },
-        "timeline": {
-            "labels": months,
-            "incidents": [monthly_counts[m] for m in months],
-            "fatalities": [monthly_fatalities[m] for m in months],
-        },
-        "force_taxonomy": {
-            "labels": list(force_categories.keys()),
-            "counts": list(force_categories.values()),
-        },
-        "agency_distribution": {
-            "labels": ["Phoenix PD", "Tempe PD", "MCSO", "AZ DPS"],
-            "incidents": [
-                agency_counts["Phoenix Police Department"]["incidents"],
-                agency_counts["Tempe Police Department"]["incidents"],
-                agency_counts["Maricopa County Sheriff's Office"]["incidents"],
-                agency_counts["Arizona Department of Public Safety"]["incidents"],
-            ],
-            "officers": [
-                agency_counts["Phoenix Police Department"]["officers"],
-                agency_counts["Tempe Police Department"]["officers"],
-                agency_counts["Maricopa County Sheriff's Office"]["officers"],
-                agency_counts["Arizona Department of Public Safety"]["officers"],
-            ],
-        },
-        "graph_topology": {
-            "labels": top_labels,
-            "counts": top_counts,
-        },
+        "status": "ok",
+        "utc_now": datetime.now(UTC).isoformat(),
+        "staging_records": staging,
+        "archive_files": raw,
     }
+
+
+@app.get("/sources")
+def list_sources(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
+    """Catalog sources merged with live registry state (no fabrication)."""
+    from app.models import DataSource
+
+    rows = {d.id: d for d in db.scalars(select(DataSource)).all()}
+    out: list[dict[str, Any]] = []
+    for source_def in load_catalog():
+        row = rows.get(source_def["id"])
+        cfg = source_def.get("config", {}) or {}
+        out.append(
+            {
+                "id": source_def["id"],
+                "name": source_def.get("name"),
+                "category": source_def.get("category"),
+                "adapter": source_def.get("adapter"),
+                "access_mode": source_def.get("access_mode"),
+                "schedule": source_def.get("schedule"),
+                "enabled": source_def.get("enabled", True),
+                "disabled_reason": cfg.get("disabled_reason"),
+                "last_run_at": row.last_run_at.isoformat() if row and row.last_run_at else None,
+                "last_error": row.last_error if row else None,
+                "live_url": cfg.get("url") or cfg.get("urls") or cfg.get("domain"),
+                "discovered_datasets": (
+                    (row.config or {}).get("discovered") if row else None
+                ),
+            }
+        )
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Pipeline control
+# ---------------------------------------------------------------------------
 
 
 @app.post("/pipeline/run-full")
-def run_pipeline_endpoint(db: Session = Depends(get_db)) -> dict[str, Any]:
-    """Run full automated end-to-end pipeline: Ingest -> Synthesize -> Resolve -> Re-synthesize."""
-    return run_full_pipeline(session=db, force=True)
+def run_pipeline_endpoint(
+    db: Session = Depends(get_db), trigger: str = Query("manual")
+) -> dict[str, Any]:
+    """Run the full six-phase pipeline: Search->Gather->Organize->Process->Verify->Synthesize."""
+    return run_full_pipeline(session=None, force=True, trigger=trigger)
 
 
 @app.post("/ingest/run")
 def run_ingestion() -> dict[str, Any]:
-    """Run all sources now (manual trigger)."""
+    """Run all enabled live sources now (six-phase orchestrator, manual trigger)."""
     return run_all_sources()
 
 
 @app.post("/synthesis/run")
 def run_synthesis(db: Session = Depends(get_db)) -> dict[str, Any]:
-    synthesis_engine = SynthesisEngine(db)
-    return synthesis_engine.execute()
+    return SynthesisEngine(db).execute()
 
 
 @app.post("/resolve/pending")
 def resolve_pending(db: Session = Depends(get_db)) -> dict[str, Any]:
     resolver = DependencyResolver(db)
-    count = resolver.resolve()
-    return {"resolved": count}
+    return {"resolved": resolver.resolve()}
+
+
+@app.get("/pipeline/runs")
+def pipeline_runs(
+    limit: int = Query(20, le=200), db: Session = Depends(get_db)
+) -> list[dict[str, Any]]:
+    rows = db.scalars(
+        select(PipelineRun).order_by(PipelineRun.id.desc()).limit(limit)
+    ).all()
+    return [
+        {
+            "id": r.id,
+            "trigger": r.trigger,
+            "status": r.status,
+            "phase_order": r.phase_order,
+            "started_at": r.started_at.isoformat(),
+            "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+            "phases": r.phases,
+            "error": r.error,
+        }
+        for r in rows
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Analytics — active month (live) and historical months (immutable replay)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/months")
+def list_months(db: Session = Depends(get_db)) -> dict[str, Any]:
+    from app.analytics.archive import MonthlyArchiver
+
+    archiver = MonthlyArchiver(db)
+    current = datetime.now(UTC).strftime("%Y-%m")
+    return {
+        "active_month": current,
+        "archived_months": archiver.list_months(),
+    }
+
+
+@app.get("/api/analytics")
+def analytics(
+    month: str | None = Query(None, description="YYYY-MM; omit for live current month"),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Canonical analytics payload — identical shape for live and archived months."""
+    current = datetime.now(UTC).strftime("%Y-%m")
+
+    if month is None or month == current:
+        from app.analytics.engine import AnalyticsEngine
+
+        return AnalyticsEngine(db).compute_month(current)
+
+    if not (len(month) == 7 and month[4] == "-" and month[:4].isdigit() and month[5:].isdigit()):
+        raise HTTPException(status_code=400, detail="month must be formatted YYYY-MM")
+
+    from app.analytics.archive import MonthlyArchiver
+
+    archiver = MonthlyArchiver(db)
+    payload = archiver.read_analytics_snapshot(month)
+    if payload is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No archived chron-log for {month}. Archived months: "
+                + ", ".join(m["month"] for m in archiver.list_months())
+            ),
+        )
+    return payload
+
+
+@app.get("/api/analytics/anomalies")
+def anomaly_findings(
+    month: str | None = Query(None), db: Session = Depends(get_db)
+) -> dict[str, Any]:
+    """Officer anomaly findings for a month (live current month when omitted)."""
+    from app.models import OfficerAnomalyFinding
+
+    month_key = month or datetime.now(UTC).strftime("%Y-%m")
+    rows = db.scalars(
+        select(OfficerAnomalyFinding)
+        .where(OfficerAnomalyFinding.month_key == month_key)
+        .order_by(OfficerAnomalyFinding.bh_q.asc(), OfficerAnomalyFinding.metric_value.desc())
+    ).all()
+    return {
+        "month": month_key,
+        "count": len(rows),
+        "findings": [
+            {
+                "id": f.id,
+                "officer_label": f.officer_label,
+                "agency_name": f.agency_name,
+                "badge_number": f.badge_number,
+                "metric": f.metric,
+                "metric_value": f.metric_value,
+                "peer_count": f.peer_count,
+                "peer_median": f.peer_median,
+                "peer_mean": f.peer_mean,
+                "peer_max": f.peer_max,
+                "robust_z": f.robust_z,
+                "poisson_p": f.poisson_p,
+                "bh_q": f.bh_q,
+                "tests_run": f.tests_run,
+                "window_start": f.window_start.isoformat() if f.window_start else None,
+                "window_end": f.window_end.isoformat() if f.window_end else None,
+                "narrative": f.narrative,
+                "evidence": f.evidence,
+            }
+            for f in rows
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Archive access
+# ---------------------------------------------------------------------------
+
+
+@app.post("/archive/refresh")
+def archive_refresh(
+    month: str | None = None, db: Session = Depends(get_db)
+) -> dict[str, Any]:
+    """Manually trigger the monthly chron-archive for a month (defaults to current)."""
+    from app.analytics.archive import MonthlyArchiver
+
+    month_key = month or datetime.now(UTC).strftime("%Y-%m")
+    archiver = MonthlyArchiver(db)
+    result = archiver.archive_month(month_key)
+    db.commit()
+    return result
+
+
+@app.get("/api/archive/files")
+def archive_files(
+    month: str | None = None, db: Session = Depends(get_db)
+) -> dict[str, Any]:
+    """List immutable archive files (all months, or one month)."""
+    stmt = select(MonthlyArchiveFile).order_by(
+        MonthlyArchiveFile.month_key.desc(), MonthlyArchiveFile.id
+    )
+    if month:
+        stmt = stmt.where(MonthlyArchiveFile.month_key == month)
+    rows = db.scalars(stmt).all()
+    return {
+        "count": len(rows),
+        "files": [
+            {
+                "id": r.id,
+                "month_key": r.month_key,
+                "kind": r.kind,
+                "filename": r.filename,
+                "content_type": r.content_type,
+                "sha256": r.sha256,
+                "size_bytes": r.size_bytes,
+                "record_count": r.record_count,
+                "created_at": r.created_at.isoformat(),
+                "download_url": f"/api/archive/file/{r.id}",
+            }
+            for r in rows
+        ],
+    }
+
+
+@app.get("/api/archive/file/{file_id}")
+def download_archive_file(file_id: int, db: Session = Depends(get_db)) -> Response:
+    row = db.get(MonthlyArchiveFile, file_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Archive file {file_id} not found")
+    # Integrity verification at read time (immutable file must match its digest).
+    import hashlib
+
+    digest = hashlib.sha256(row.payload).hexdigest()
+    if digest != row.sha256:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Integrity failure: stored digest {row.sha256} != recomputed {digest}",
+        )
+    return Response(
+        content=row.payload,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{row.filename}"',
+            "X-Content-Sha256": row.sha256,
+            "X-Immutable": "true",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Hybrid retrieval
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/search")
+def search(
+    q: str = Query(..., min_length=1),
+    mode: str = Query("hybrid", pattern="^(hybrid|lexical|semantic|literal)$"),
+    limit: int = Query(25, le=200),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    from app.search.retrieval import HybridRetriever
+
+    return HybridRetriever(db).search(q, limit=limit, mode=mode)
+
+
+# ---------------------------------------------------------------------------
+# Entity listings (exact values only; missing values are labeled, not invented)
+# ---------------------------------------------------------------------------
 
 
 @app.get("/incidents")
@@ -287,17 +412,21 @@ def list_incidents(
     db: Session = Depends(get_db),
 ):
     rows = db.execute(
-        select(Incident).order_by(Incident.occurred_at.desc()).limit(limit).offset(offset)
+        select(Incident)
+        .order_by(Incident.occurred_at.desc().nullslast())
+        .limit(limit)
+        .offset(offset)
     ).scalars().all()
 
     result = []
     for inc in rows:
         data = inc.data or {}
-        agency_name = "Phoenix Police Department"
         if inc.agency:
             agency_name = inc.agency.name
         elif data.get("agency_name"):
             agency_name = data["agency_name"]
+        else:
+            agency_name = "Unattributed Agency"
 
         officer_links = db.execute(
             select(EntityLink).where(
@@ -314,41 +443,44 @@ def list_incidents(
                 name = (
                     " ".join(filter(None, [off.first_name, off.last_name]))
                     or f"Badge #{off.badge_number}"
+                    if (off.first_name or off.last_name or off.badge_number)
+                    else "Name not recorded"
                 )
-                officers_info.append({
-                    "id": off.id,
-                    "badge_number": off.badge_number,
-                    "employee_id": off.employee_id,
-                    "name": name,
-                    "rank": (off.external_ids or {}).get("rank", "Officer"),
-                })
+                officers_info.append(
+                    {
+                        "id": off.id,
+                        "badge_number": off.badge_number,
+                        "employee_id": off.employee_id,
+                        "name": name,
+                        "rank": (off.external_ids or {}).get("rank"),
+                    }
+                )
 
         subject_name = (
             " ".join(filter(None, [data.get("person_first_name"), data.get("person_last_name")]))
             or data.get("person_name")
             or data.get("victim_name")
-            or "Subject Unknown"
+            or "Subject not named in source"
         )
 
-        evidence = data.get("evidence", {})
-
-        result.append({
-            "id": inc.id,
-            "incident_number": (inc.external_ids or {}).get("incident_number", f"INC-{inc.id}"),
-            "incident_type": inc.incident_type or "incident",
-            "occurred_at": inc.occurred_at.isoformat() if inc.occurred_at else None,
-            "location": inc.location or "Location Undisclosed",
-            "agency_id": inc.agency_id,
-            "agency_name": agency_name,
-            "subject_name": subject_name,
-            "cause_of_death": data.get("cause_of_death"),
-            "armed_status": data.get("armed") or data.get("armed_status"),
-            "force_type": data.get("force_type"),
-            "officers_involved": officers_info,
-            "external_ids": inc.external_ids or {},
-            "evidence": evidence,
-            "data": data,
-        })
+        result.append(
+            {
+                "id": inc.id,
+                "incident_number": (inc.external_ids or {}).get("incident_number"),
+                "incident_type": inc.incident_type,
+                "occurred_at": inc.occurred_at.isoformat() if inc.occurred_at else None,
+                "location": inc.location,
+                "agency_id": inc.agency_id,
+                "agency_name": agency_name,
+                "subject_name": subject_name,
+                "cause_of_death": data.get("cause_of_death"),
+                "armed_status": data.get("armed") or data.get("armed_status"),
+                "force_type": data.get("force_type"),
+                "officers_involved": officers_info,
+                "external_ids": inc.external_ids or {},
+                "data": data,
+            }
+        )
     return result
 
 
@@ -361,7 +493,7 @@ def list_officers(
     rows = db.execute(select(Officer).limit(limit).offset(offset)).scalars().all()
     result = []
     for off in rows:
-        agency_name = off.agency.name if off.agency else "Phoenix Police Department"
+        agency_name = off.agency.name if off.agency else "Unattributed Agency"
         ext = off.external_ids or {}
 
         inc_links = db.execute(
@@ -374,25 +506,25 @@ def list_officers(
 
         full_name = (
             " ".join(filter(None, [off.first_name, off.last_name]))
-            or f"Badge #{off.badge_number}"
+            or (f"Badge #{off.badge_number}" if off.badge_number else "Name not recorded")
         )
 
-        result.append({
-            "id": off.id,
-            "badge_number": off.badge_number or "-",
-            "employee_id": off.employee_id or "-",
-            "first_name": off.first_name,
-            "last_name": off.last_name,
-            "full_name": full_name,
-            "rank": ext.get("rank", "Officer"),
-            "agency_id": off.agency_id,
-            "agency_name": agency_name,
-            "status": off.status or "Active",
-            "notes": ext.get("notes") or "Active Duty Roster",
-            "source_id": ext.get("source_id", "roster"),
-            "incidents_count": len(inc_links),
-            "external_ids": ext,
-        })
+        result.append(
+            {
+                "id": off.id,
+                "badge_number": off.badge_number,
+                "employee_id": off.employee_id,
+                "first_name": off.first_name,
+                "last_name": off.last_name,
+                "full_name": full_name,
+                "rank": ext.get("rank"),
+                "agency_id": off.agency_id,
+                "agency_name": agency_name,
+                "status": off.status,
+                "incidents_count": len(inc_links),
+                "external_ids": ext,
+            }
+        )
     return result
 
 
@@ -403,20 +535,20 @@ def list_links(
     db: Session = Depends(get_db),
 ):
     rows = db.execute(select(EntityLink).limit(limit).offset(offset)).scalars().all()
-    result = []
-    for link in rows:
-        result.append({
+    return [
+        {
             "id": link.id,
             "source_entity": link.source_entity,
             "source_id": link.source_id,
             "target_entity": link.target_entity,
             "target_id": link.target_id,
             "relation_type": link.relation_type,
-            "join_key": link.join_key or "-",
+            "join_key": link.join_key,
             "confidence": link.confidence,
             "metadata": link.metadata_ or {},
-        })
-    return result
+        }
+        for link in rows
+    ]
 
 
 @app.get("/staging/suspended")
@@ -426,5 +558,15 @@ def suspended_staging(
 ):
     rows = db.execute(
         select(StagingRecord).where(StagingRecord.status == "suspended").limit(limit)
-    )
-    return rows.scalars().all()
+    ).scalars().all()
+    return [
+        {
+            "id": s.id,
+            "source_id": s.source_id,
+            "entity_type": s.entity_type,
+            "status": s.status,
+            "suspension_reason": s.suspension_reason,
+            "payload": s.payload,
+        }
+        for s in rows
+    ]

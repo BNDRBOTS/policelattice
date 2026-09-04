@@ -1,30 +1,29 @@
+"""Live web-page scraper for public portals without a documented API.
+
+HTML parsing uses ``BeautifulSoup`` over the ``lxml`` engine — libxml2-backed
+and the fastest production-grade HTML parser available in Python (dominates
+html.parser in parsing benchmarks while remaining lenient with real-world
+markup).
+"""
+
 from __future__ import annotations
 
+import logging
 import os
 
-import requests
 from bs4 import BeautifulSoup
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.ingestion.base import BaseAdapter, RawRecordDTO
+from app.ingestion.http_client import LiveSourceError, get_fetch_client
+
+logger = logging.getLogger(__name__)
 
 
 class WebScraperAdapter(BaseAdapter):
-    """Minimal web scraper for public portals that do not expose an API.
-
-    If no `url_env` or `url` is configured, the adapter skips. It is not
-    intended to replace browser automation; manual exports should be used for
-    JavaScript-heavy portals.
-    """
+    """Fetches a live public web page and extracts its text and links."""
 
     name = "web_scraper"
-    access_mode = "manual"
-
-    @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, min=1, max=10))
-    def _get(self, url: str) -> requests.Response:
-        resp = requests.get(url, timeout=30, headers={"User-Agent": "police-lattice/0.1"})
-        resp.raise_for_status()
-        return resp
+    access_mode = "api"
 
     def fetch(self) -> list[RawRecordDTO]:
         config = self.source_config
@@ -32,22 +31,38 @@ class WebScraperAdapter(BaseAdapter):
         url = None
         if url_env:
             url = getattr(self.settings, url_env.lower(), None) or os.getenv(url_env)
-        else:
-            url = config.get("url")
+        url = url or config.get("url")
         if not url:
-            self.log_skip("No URL configured for scraper")
+            self.log_skip("No live URL configured for scraper")
             return []
 
-        resp = self._get(url)
-        soup = BeautifulSoup(resp.text, "html.parser")
-        title = soup.title.string if soup.title else url
-        text = soup.get_text(" ", strip=True)[:5000]
+        try:
+            html = get_fetch_client().get_text(url)
+        except LiveSourceError as exc:
+            self.log_skip(f"Scrape failed for {url}: {exc}")
+            return []
+
+        soup = BeautifulSoup(html, "lxml")
+        title = soup.title.get_text(strip=True) if soup.title else ""
+        # Full text extraction — no truncation of extracted content.
+        text = soup.get_text(" ", strip=True)
+
+        links = []
+        for a in soup.find_all("a", href=True):
+            label = a.get_text(strip=True)
+            if label:
+                links.append({"label": label, "href": a["href"]})
 
         return [
             RawRecordDTO(
                 content_type="text/html",
-                payload={"url": url, "title": title, "text": text},
+                payload={
+                    "url": url,
+                    "title": title,
+                    "text": text,
+                    "links": links,
+                },
                 source_id=self.source_config.get("id"),
-                metadata={"adapter": self.name, "url": url},
+                metadata={"adapter": self.name, "url": url, "live_url": url},
             )
         ]

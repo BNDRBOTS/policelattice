@@ -49,17 +49,21 @@ class BaseAdapter:
         # Merge top-level source metadata with nested config dict
         self.source_config = {**self.source_def, **inner_config}
         self.settings = get_settings()
+        # Every skip reason is recorded and persisted for full transparency.
+        self.skip_reasons: list[str] = []
 
     def fetch(self) -> list[RawRecordDTO]:
         """Return raw records for this source.
 
-        Subclasses must implement this method. Manual adapters should return
-        an empty list, not raise.
+        Subclasses must implement this method. Adapters that cannot reach
+        their live endpoint return an empty list and record the reason via
+        ``log_skip`` — they must never fabricate records.
         """
         raise NotImplementedError
 
     def log_skip(self, reason: str) -> None:
-        """Log skip without traceback."""
+        """Record and log a skip reason (surfaced in the source registry)."""
+        self.skip_reasons.append(reason)
         print(f"[{self.name}] SKIP: {reason}")
 
 

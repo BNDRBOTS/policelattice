@@ -1,5 +1,0 @@
-incident_number,officer_badge_number,officer_employee_id,date_time,location,agency_name,incident_type,force_type
-MPV-2025-001,B1042,E44910,2025-01-14T04:22:00Z,35th Ave & Indian School Rd,Phoenix Police Department,use_of_force,Taser Deployment
-MPV-2025-002,B2215,E55201,2025-02-03T18:45:00Z,7th St & Buckeye Rd,Phoenix Police Department,use_of_force,Physical Restraint & Baton
-MPV-2025-004,B3099,E66112,2025-04-29T11:05:00Z,19th Ave & Camelback Rd,Phoenix Police Department,use_of_force,Vehicle Precision Immobilization
-MPV-2025-006,B6088,E99104,2025-08-05T15:12:00Z,43rd Ave & Thomas Rd,Phoenix Police Department,use_of_force,Firearm Discharge

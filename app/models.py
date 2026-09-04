@@ -5,12 +5,14 @@ from typing import Any
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     DateTime,
     Float,
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -224,7 +226,9 @@ class NewsArticle(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     source_id: Mapped[str | None] = mapped_column(ForeignKey("data_sources.id"), index=True)
     title: Mapped[str] = mapped_column(String(500))
-    url: Mapped[str] = mapped_column(String(1000), index=True)
+    # Nullable: a feed entry without a link stores NULL (a fact about the
+    # source), never a fabricated URL.
+    url: Mapped[str | None] = mapped_column(String(1000), index=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     content: Mapped[str | None] = mapped_column(Text)
     external_ids: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
@@ -304,3 +308,136 @@ class SynthesisRun(TimestampMixin, Base):
     stats: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
 
     staging_records: Mapped[list[StagingRecord]] = relationship(back_populates="synthesis_run")
+
+
+# ---------------------------------------------------------------------------
+# Pipeline orchestration audit (Search -> Gather -> Organize -> Process ->
+# Verify -> Synthesize)
+# ---------------------------------------------------------------------------
+
+
+class PipelineRun(TimestampMixin, Base):
+    """Audit trail of one full six-phase pipeline execution."""
+
+    __tablename__ = "pipeline_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    trigger: Mapped[str] = mapped_column(String(60), default="manual")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(40), default="running")
+    phase_order: Mapped[list[str]] = mapped_column(JSON_TYPE, default=list)
+    phases: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
+    error: Mapped[str | None] = mapped_column(Text)
+
+
+class VerificationResult(TimestampMixin, Base):
+    """Outcome of the external-validation (Verify) phase for one staging record."""
+
+    __tablename__ = "verification_results"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    staging_record_id: Mapped[int] = mapped_column(
+        ForeignKey("staging_records.id"), index=True, unique=True
+    )
+    passed: Mapped[bool] = mapped_column(Boolean, default=False)
+    checks: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
+    failures: Mapped[list[Any]] = mapped_column(JSON_TYPE, default=list)
+    verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    staging_record: Mapped[StagingRecord] = relationship()
+
+
+# ---------------------------------------------------------------------------
+# Immutable monthly chron-archive (discrete files persisted inside the
+# Railway PostgreSQL database)
+# ---------------------------------------------------------------------------
+
+
+class MonthlyArchiveFile(TimestampMixin, Base):
+    """A discrete, immutable, compressed data-log file for one calendar month.
+
+    Files are stored as BYTEA payloads directly inside the PostgreSQL database
+    so the archive travels with the Railway database volume. Rows are append
+    only: PostgreSQL triggers (installed by ``app.db``) reject UPDATE/DELETE,
+    and the application exposes no mutation path.
+    """
+
+    __tablename__ = "monthly_archive_files"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    month_key: Mapped[str] = mapped_column(String(7), index=True)  # YYYY-MM
+    kind: Mapped[str] = mapped_column(String(60), index=True)
+    filename: Mapped[str] = mapped_column(String(300))
+    content_type: Mapped[str] = mapped_column(String(120))
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    record_count: Mapped[int] = mapped_column(Integer, default=0)
+    payload: Mapped[bytes] = mapped_column(LargeBinary)
+    pipeline_run_id: Mapped[int | None] = mapped_column(ForeignKey("pipeline_runs.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("month_key", "kind", "filename", name="uq_archive_month_kind_file"),
+        Index("ix_archive_month_kind", "month_key", "kind"),
+    )
+
+
+class MonthlyRefreshRun(TimestampMixin, Base):
+    """Audit of the automated monthly refresh / archive protocol."""
+
+    __tablename__ = "monthly_refresh_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    month_key: Mapped[str] = mapped_column(String(7), index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(40), default="running")
+    files_written: Mapped[int] = mapped_column(Integer, default=0)
+    bytes_written: Mapped[int] = mapped_column(BigInteger, default=0)
+    stats: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
+    error: Mapped[str | None] = mapped_column(Text)
+
+    __table_args__ = (UniqueConstraint("month_key", "id", name="uq_refresh_month_run"),)
+
+
+class OfficerAnomalyFinding(TimestampMixin, Base):
+    """A statistically quantified behavioral anomaly finding for one officer.
+
+    Findings are recomputed each run for the current month and persisted, so
+    the historical record of findings grows month over month. Every field is
+    objective: measured counts, peer statistics, p-values and Benjamini-Hochberg
+    corrected q-values. No subjective language is stored.
+    """
+
+    __tablename__ = "officer_anomaly_findings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    month_key: Mapped[str] = mapped_column(String(7), index=True)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    officer_id: Mapped[int | None] = mapped_column(ForeignKey("officers.id"), index=True)
+    officer_label: Mapped[str] = mapped_column(String(300))
+    agency_name: Mapped[str | None] = mapped_column(String(300))
+    badge_number: Mapped[str | None] = mapped_column(String(120))
+    metric: Mapped[str] = mapped_column(String(120))
+    metric_value: Mapped[float] = mapped_column(Float)
+    peer_count: Mapped[int] = mapped_column(Integer)
+    peer_median: Mapped[float] = mapped_column(Float)
+    peer_mad: Mapped[float] = mapped_column(Float)
+    peer_mean: Mapped[float] = mapped_column(Float)
+    peer_max: Mapped[float] = mapped_column(Float)
+    ratio_to_median: Mapped[float | None] = mapped_column(Float)
+    robust_z: Mapped[float | None] = mapped_column(Float)
+    poisson_p: Mapped[float | None] = mapped_column(Float)
+    bh_q: Mapped[float | None] = mapped_column(Float)
+    tests_run: Mapped[int] = mapped_column(Integer, default=0)
+    window_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    window_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    metric_records_basis: Mapped[dict[str, Any]] = mapped_column(JSON_TYPE, default=dict)
+    evidence: Mapped[list[Any]] = mapped_column(JSON_TYPE, default=list)
+    narrative: Mapped[str] = mapped_column(Text)
+
+    __table_args__ = (
+        Index("ix_anomaly_month_officer", "month_key", "officer_id"),
+        Index("ix_anomaly_month_metric", "month_key", "metric"),
+    )

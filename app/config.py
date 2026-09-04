@@ -62,6 +62,28 @@ class Settings(BaseSettings):
     )
     tesseract_cmd: str = "tesseract"
 
+    # Retrieval (semantic + lexical + literal hybrid search)
+    semantic_model: str = "BAAI/bge-small-en-v1.5"
+    search_result_limit: int = 50
+
+    # Monthly chron-archive protocol
+    archive_enabled: bool = True
+    archive_backfill_months: int = 24
+    monthly_refresh_cron_day: int = 1
+    monthly_refresh_cron_hour: int = 2
+
+    # Verification (Verify phase) thresholds
+    verify_max_record_age_days: int = 3650
+    verify_require_provenance: bool = True
+
+    # External acquisition resilience
+    fetch_timeout_seconds: float = 20.0
+    fetch_max_retries: int = 3
+    fetch_user_agent: str = (
+        "PoliceLattice/2.0 (autonomous public-records pipeline; "
+        "+https://github.com/BNDRBOTS/policelattice)"
+    )
+
     @field_validator("database_url", mode="before")
     @classmethod
     def resolve_and_normalize_database_url(cls, v: str | None) -> str:

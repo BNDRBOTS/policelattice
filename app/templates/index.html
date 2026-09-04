@@ -15,1462 +15,759 @@
             --bg-card: rgba(13, 17, 28, 0.65);
             --bg-card-hover: rgba(22, 29, 46, 0.85);
             --bg-glass: rgba(255, 255, 255, 0.03);
-            
             --border-hairline: rgba(255, 255, 255, 0.08);
             --border-glow: rgba(157, 78, 221, 0.5);
-            
             --text-primary: #ffffff;
             --text-secondary: #94a3b8;
             --text-muted: #64748b;
-            
             --neon-violet: #9d4edd;
-            --neon-purple: #7928ca;
             --neon-cyan: #00f0ff;
-            --neon-blue: #0070f3;
             --neon-emerald: #00dfd8;
             --neon-green: #10b981;
             --neon-amber: #f59e0b;
-            --neon-pink: #ff007a;
             --neon-red: #ef4444;
-
             --gradient-uv: linear-gradient(135deg, #7928ca 0%, #00f0ff 100%);
-            --gradient-neon-card: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
-            
             --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
             --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-            
-            --radius-xs: 6px;
             --radius-sm: 10px;
             --radius-md: 16px;
             --radius-lg: 24px;
+            --chart-h: 460px;
         }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: var(--font-apple);
             background-color: var(--bg-pitch);
             color: var(--text-primary);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background-image: 
+            display: flex; flex-direction: column;
+            background-image:
                 radial-gradient(circle at 10% 0%, rgba(121, 40, 202, 0.12) 0%, transparent 45%),
                 radial-gradient(circle at 90% 10%, rgba(0, 240, 255, 0.09) 0%, transparent 45%),
-                radial-gradient(circle at 50% 60%, rgba(0, 223, 216, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 80% 90%, rgba(255, 0, 122, 0.06) 0%, transparent 40%);
+                radial-gradient(circle at 50% 60%, rgba(0, 223, 216, 0.05) 0%, transparent 50%);
             background-attachment: fixed;
             -webkit-font-smoothing: antialiased;
             letter-spacing: -0.011em;
         }
-
-        /* HEADER */
         header {
             background: rgba(0, 0, 0, 0.75);
             backdrop-filter: blur(30px) saturate(180%);
             -webkit-backdrop-filter: blur(30px) saturate(180%);
             border-bottom: 1px solid var(--border-hairline);
-            padding: 1rem 2.5rem;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1.5rem;
+            padding: 1rem 2rem;
+            position: sticky; top: 0; z-index: 1000;
+            display: flex; align-items: center; justify-content: space-between; gap: 1.25rem;
+            flex-wrap: wrap;
         }
-
-        .brand-cluster {
-            display: flex;
-            align-items: center;
-            gap: 1.1rem;
-        }
-
+        .brand-cluster { display: flex; align-items: center; gap: 1rem; }
         .brand-monogram {
-            width: 38px;
-            height: 38px;
-            border-radius: var(--radius-sm);
+            width: 38px; height: 38px; border-radius: var(--radius-sm);
             background: var(--gradient-uv);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 1.05rem;
-            color: #ffffff;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.05rem; color: #fff;
             box-shadow: 0 0 25px rgba(157, 78, 221, 0.45);
         }
-
-        .brand-text-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            color: #ffffff;
-        }
-
-        .brand-text-sub {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .header-meta {
-            display: flex;
-            align-items: center;
-            gap: 1.25rem;
-        }
-
-        .live-status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.35rem 0.9rem;
+        .brand-text-title { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.02em; }
+        .brand-text-sub { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
+        .header-controls { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+        .month-select, .search-input {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border-hairline);
+            color: var(--text-primary);
             border-radius: 9999px;
-            font-size: 0.72rem;
-            font-weight: 600;
+            padding: 0.5rem 1rem;
             font-family: var(--font-mono);
-            background: rgba(0, 223, 216, 0.08);
-            color: var(--neon-emerald);
-            border: 1px solid rgba(0, 223, 216, 0.25);
-            box-shadow: 0 0 20px rgba(0, 223, 216, 0.15);
+            font-size: 0.78rem;
+            outline: none;
+            transition: border-color .15s ease;
         }
-
+        .month-select:focus, .search-input:focus { border-color: var(--border-glow); }
+        .month-select option { background: #0a0e18; }
+        .search-input { width: 240px; }
+        .search-input::placeholder { color: var(--text-muted); }
+        .live-pill {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.35rem 0.9rem; border-radius: 9999px;
+            font-size: 0.7rem; font-weight: 600; font-family: var(--font-mono);
+            background: rgba(0, 223, 216, 0.08); color: var(--neon-emerald);
+            border: 1px solid rgba(0, 223, 216, 0.25);
+        }
         .live-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
+            width: 7px; height: 7px; border-radius: 50%;
             background-color: var(--neon-emerald);
             box-shadow: 0 0 10px var(--neon-emerald);
             animation: pulse-glow 2s infinite ease-in-out;
         }
-
-        @keyframes pulse-glow {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.35; transform: scale(0.85); }
-        }
-
-        .nav-anchor {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.8125rem;
-            font-weight: 500;
-            transition: all 0.15s ease;
-        }
-
-        .nav-anchor:hover {
-            color: #ffffff;
-        }
-
-        /* MAIN CONTAINER */
-        main {
-            flex: 1;
-            padding: 2.5rem;
-            max-width: 1600px;
-            width: 100%;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        /* TELEMETRY KPI GRID */
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 1.25rem;
-        }
-
-        .glass-kpi {
-            background: var(--bg-card);
-            backdrop-filter: blur(40px) saturate(180%);
-            -webkit-backdrop-filter: blur(40px) saturate(180%);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-md);
-            padding: 1.4rem 1.6rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .glass-kpi::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: var(--gradient-neon-card);
-            pointer-events: none;
-        }
-
-        .glass-kpi:hover {
-            transform: translateY(-3px);
+        .arch-pill {
+            background: rgba(157, 78, 221, 0.1); color: #c77dff;
             border-color: rgba(157, 78, 221, 0.35);
-            box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.8), 0 0 25px rgba(121, 40, 202, 0.15);
         }
+        @keyframes pulse-glow { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.35;transform:scale(.85);} }
+        main { flex: 1; padding: 2rem; max-width: 1720px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 1.6rem; }
 
-        .kpi-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .kpi-label {
-            font-size: 0.72rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
+        .summary-strip {
+            background: var(--bg-card); backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid var(--border-hairline); border-radius: var(--radius-md);
+            padding: 1.2rem 1.5rem; font-size: 0.92rem; line-height: 1.65;
             color: var(--text-secondary);
         }
-
-        .kpi-number {
-            font-size: 2.35rem;
-            font-weight: 800;
-            color: #ffffff;
-            font-family: var(--font-apple);
-            letter-spacing: -0.04em;
-            line-height: 1;
+        .summary-strip strong { color: var(--text-primary); }
+        .summary-strip .mode-tag {
+            font-family: var(--font-mono); font-size: 0.68rem; padding: 0.15rem 0.6rem;
+            border-radius: 9999px; margin-right: 0.6rem; vertical-align: middle;
+            background: rgba(0,223,216,.1); color: var(--neon-emerald); border: 1px solid rgba(0,223,216,.3);
         }
+        .summary-strip .mode-tag.archived { background: rgba(157,78,221,.12); color: #c77dff; border-color: rgba(157,78,221,.35); }
 
-        .kpi-caption {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: 500;
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 1rem; }
+        .glass-kpi {
+            background: var(--bg-card); backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid var(--border-hairline); border-radius: var(--radius-md);
+            padding: 1.1rem 1.25rem; display: flex; flex-direction: column; gap: 0.4rem;
         }
+        .glass-kpi .kpi-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; }
+        .glass-kpi .kpi-value { font-size: 1.7rem; font-weight: 700; font-family: var(--font-mono); letter-spacing: -0.02em; }
+        .glass-kpi .kpi-sub { font-size: 0.7rem; color: var(--text-secondary); }
 
-        /* COMMAND BAR */
-        .command-strip {
-            background: var(--bg-card);
-            backdrop-filter: blur(40px);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-md);
-            padding: 1.25rem 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1.25rem;
+        section.panel {
+            background: var(--bg-card); backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid var(--border-hairline); border-radius: var(--radius-md);
+            padding: 1.4rem 1.6rem;
         }
+        .panel-title { font-size: 1.02rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 0.25rem; }
+        .panel-sub { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5; }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.4rem; }
+        .chart-box {
+            background: var(--bg-glass); border: 1px solid var(--border-hairline);
+            border-radius: var(--radius-sm); padding: 1.1rem;
+            height: var(--chart-h); position: relative;
+        }
+        .chart-box canvas { width: 100% !important; height: 100% !important; }
+        .chart-title { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem; }
+        .timeline-box { height: 320px; position: relative; padding: 1.1rem; background: var(--bg-glass); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); }
 
-        .cmd-heading {
-            font-size: 1.05rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
+        .finding-card {
+            border: 1px solid rgba(239, 68, 68, 0.28);
+            background: linear-gradient(180deg, rgba(239,68,68,0.06), rgba(239,68,68,0.015));
+            border-radius: var(--radius-sm); padding: 1.2rem 1.4rem; margin-bottom: 1rem;
         }
+        .finding-head { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+        .finding-name { font-size: 1rem; font-weight: 700; }
+        .finding-metric {
+            font-family: var(--font-mono); font-size: 0.68rem; padding: 0.18rem 0.65rem;
+            border-radius: 9999px; background: rgba(239,68,68,0.14); color: #fca5a5;
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+        .finding-stats { display: flex; gap: 1.4rem; flex-wrap: wrap; margin: 0.7rem 0; padding: 0.7rem 0.9rem; background: rgba(0,0,0,0.35); border-radius: 8px; font-family: var(--font-mono); font-size: 0.72rem; }
+        .finding-stats .stat b { display: block; font-size: 0.95rem; color: var(--text-primary); }
+        .finding-stats .stat span { color: var(--text-muted); text-transform: uppercase; font-size: 0.58rem; letter-spacing: 0.08em; }
+        .finding-narrative { font-size: 0.86rem; line-height: 1.7; color: var(--text-secondary); }
+        .finding-evidence { margin-top: 0.7rem; font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-muted); white-space: pre-wrap; max-height: 200px; overflow: auto; background: rgba(0,0,0,0.4); padding: 0.8rem; border-radius: 8px; }
 
-        .cmd-subtext {
-            font-size: 0.8125rem;
-            color: var(--text-secondary);
-            margin-top: 0.2rem;
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+        .data-table th {
+            text-align: left; font-family: var(--font-mono); font-size: 0.62rem;
+            text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-muted);
+            padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border-hairline);
+            position: sticky; top: 0; background: rgba(10, 14, 24, 0.97); cursor: pointer; user-select: none;
         }
-
-        .cmd-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            flex-wrap: wrap;
+        .data-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text-secondary); vertical-align: top; }
+        .data-table tr:hover td { background: rgba(255,255,255,0.025); }
+        .data-table td.mono { font-family: var(--font-mono); font-size: 0.72rem; }
+        .table-scroll { max-height: 560px; overflow: auto; border-radius: var(--radius-sm); border: 1px solid var(--border-hairline); }
+        .empty-state {
+            padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;
+            border: 1px dashed var(--border-hairline); border-radius: var(--radius-sm);
         }
-
-        .btn-apple {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            padding: 0.7rem 1.4rem;
-            border-radius: var(--radius-sm);
-            font-size: 0.8125rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            border: 1px solid transparent;
-            font-family: var(--font-apple);
+        details.raw-details summary { cursor: pointer; color: var(--neon-cyan); font-family: var(--font-mono); font-size: 0.68rem; }
+        details.raw-details pre {
+            margin-top: 0.5rem; font-family: var(--font-mono); font-size: 0.66rem;
+            color: var(--text-secondary); white-space: pre-wrap; word-break: break-all;
+            background: rgba(0,0,0,0.45); padding: 0.8rem; border-radius: 8px;
+            max-height: 340px; overflow: auto;
         }
-
-        .btn-glow {
-            background: var(--gradient-uv);
-            color: #ffffff;
-            box-shadow: 0 4px 20px rgba(121, 40, 202, 0.4);
+        .badge {
+            display: inline-block; font-family: var(--font-mono); font-size: 0.62rem;
+            padding: 0.14rem 0.55rem; border-radius: 9999px;
+            border: 1px solid var(--border-hairline); color: var(--text-secondary);
         }
-
-        .btn-glow:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 28px rgba(121, 40, 202, 0.6);
-            opacity: 0.95;
+        .badge.ok { color: var(--neon-green); border-color: rgba(16,185,129,.35); background: rgba(16,185,129,.07); }
+        .badge.fail { color: var(--neon-red); border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.07); }
+        .badge.arch { color: #c77dff; border-color: rgba(157,78,221,.35); background: rgba(157,78,221,.08); }
+        a.dl-link { color: var(--neon-cyan); font-family: var(--font-mono); font-size: 0.7rem; text-decoration: none; }
+        a.dl-link:hover { text-decoration: underline; }
+        .search-results { display: none; }
+        .search-results .hit { padding: 0.7rem 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .search-results .hit-title { font-weight: 600; font-size: 0.85rem; }
+        .search-results .hit-meta { font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-muted); margin-top: 0.2rem; }
+        .search-results .hit-snippet { font-size: 0.76rem; color: var(--text-secondary); margin-top: 0.3rem; line-height: 1.5; }
+        footer {
+            border-top: 1px solid var(--border-hairline); padding: 1.4rem 2rem;
+            text-align: center; color: var(--text-muted); font-size: 0.72rem; line-height: 1.7;
         }
-
-        .btn-glass {
-            background: rgba(255, 255, 255, 0.05);
-            color: #ffffff;
-            border: 1px solid var(--border-hairline);
+        .skeleton { position: relative; overflow: hidden; }
+        .skeleton::after {
+            content: ""; position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+            animation: shimmer 1.4s infinite;
         }
-
-        .btn-glass:hover {
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.18);
-            transform: translateY(-1px);
-        }
-
-        /* VISUAL ANALYTICS GRID */
-        .analytics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .chart-panel {
-            background: var(--bg-card);
-            backdrop-filter: blur(40px);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-md);
-            padding: 1.6rem 1.8rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1.25rem;
-            position: relative;
-        }
-
-        .chart-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .chart-headline {
-            font-size: 0.95rem;
-            font-weight: 700;
-            letter-spacing: -0.015em;
-        }
-
-        .chart-badge {
-            font-size: 0.68rem;
-            font-weight: 700;
-            font-family: var(--font-mono);
-            padding: 0.25rem 0.55rem;
-            border-radius: var(--radius-xs);
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text-secondary);
-            border: 1px solid var(--border-hairline);
-        }
-
-        .chart-container-box {
-            position: relative;
-            height: 240px;
-            width: 100%;
-        }
-
-        /* NAVIGATION TABS */
-        .explorer-tabs {
-            display: flex;
-            border-bottom: 1px solid var(--border-hairline);
-            gap: 0.5rem;
-            overflow-x: auto;
-            scrollbar-width: none;
-        }
-
-        .tab-item {
-            padding: 0.85rem 1.4rem;
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-            font-family: var(--font-apple);
-        }
-
-        .tab-item:hover {
-            color: #ffffff;
-        }
-
-        .tab-item.active {
-            color: var(--neon-cyan);
-            border-bottom-color: var(--neon-cyan);
-        }
-
-        .explorer-view {
-            display: none;
-        }
-
-        .explorer-view.active {
-            display: block;
-        }
-
-        /* DATA TABLES */
-        .glass-table-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(40px);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-md);
-            overflow: hidden;
-        }
-
-        .table-bar {
-            padding: 1.25rem 1.75rem;
-            border-bottom: 1px solid var(--border-hairline);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .table-bar-title {
-            font-size: 1.05rem;
-            font-weight: 700;
-            letter-spacing: -0.015em;
-        }
-
-        .table-search {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-sm);
-            padding: 0.6rem 1.1rem;
-            color: #ffffff;
-            font-size: 0.8125rem;
-            outline: none;
-            width: 320px;
-            font-family: var(--font-apple);
-            transition: all 0.2s ease;
-        }
-
-        .table-search:focus {
-            border-color: var(--neon-cyan);
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
-        }
-
-        .table-scroll {
-            overflow-x: auto;
-            max-height: 620px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            font-size: 0.8125rem;
-        }
-
-        th {
-            background: rgba(6, 8, 15, 0.95);
-            backdrop-filter: blur(10px);
-            color: var(--text-muted);
-            padding: 0.9rem 1.35rem;
-            font-weight: 700;
-            border-bottom: 1px solid var(--border-hairline);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            text-transform: uppercase;
-            letter-spacing: 0.07em;
-            font-size: 0.7rem;
-        }
-
-        td {
-            padding: 1rem 1.35rem;
-            border-bottom: 1px solid var(--border-hairline);
-            color: var(--text-primary);
-            vertical-align: middle;
-        }
-
-        tr {
-            transition: background-color 0.15s ease;
-        }
-
-        tr:hover td {
-            background-color: rgba(255, 255, 255, 0.035);
-        }
-
-        /* PILL BADGES */
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            padding: 0.25rem 0.65rem;
-            border-radius: 9999px;
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-        }
-
-        .pill-violet { background: rgba(157, 78, 221, 0.15); color: #c4b5fd; border: 1px solid rgba(157, 78, 221, 0.3); }
-        .pill-cyan { background: rgba(0, 240, 255, 0.12); color: var(--neon-cyan); border: 1px solid rgba(0, 240, 255, 0.3); }
-        .pill-emerald { background: rgba(0, 223, 216, 0.12); color: var(--neon-emerald); border: 1px solid rgba(0, 223, 216, 0.3); }
-        .pill-pink { background: rgba(255, 0, 122, 0.12); color: #f472b6; border: 1px solid rgba(255, 0, 122, 0.3); }
-        .pill-amber { background: rgba(245, 158, 11, 0.12); color: var(--neon-amber); border: 1px solid rgba(245, 158, 11, 0.3); }
-        
-        .code-cell {
-            font-family: var(--font-mono);
-            font-size: 0.78rem;
-            color: #cbd5e1;
-        }
-
-        .btn-inspect {
-            padding: 0.35rem 0.75rem;
-            border-radius: var(--radius-xs);
-            font-size: 0.72rem;
-            font-weight: 600;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid var(--border-hairline);
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-
-        .btn-inspect:hover {
-            background: rgba(0, 240, 255, 0.15);
-            color: #ffffff;
-            border-color: var(--neon-cyan);
-        }
-
-        /* PROVENANCE INSPECTOR MODAL */
-        .modal-backdrop {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(20px);
-            z-index: 3000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
-        }
-
-        .inspector-window {
-            background: rgba(13, 17, 28, 0.95);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-lg);
-            width: 100%;
-            max-width: 800px;
-            max-height: 85vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(121, 40, 202, 0.25);
-        }
-
-        .inspector-header {
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border-hairline);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .inspector-title {
-            font-size: 1.15rem;
-            font-weight: 700;
-        }
-
-        .inspector-body {
-            padding: 2rem;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .inspector-section-title {
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-        }
-
-        .provenance-card {
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-sm);
-            padding: 1rem 1.25rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-        }
-
-        .provenance-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8125rem;
-        }
-
-        .provenance-label {
-            color: var(--text-muted);
-        }
-
-        .provenance-value {
-            font-weight: 600;
-            color: #ffffff;
-            font-family: var(--font-mono);
-        }
-
-        .raw-json-box {
-            background: rgba(0, 0, 0, 0.7);
-            border: 1px solid var(--border-hairline);
-            border-radius: var(--radius-sm);
-            padding: 1rem;
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            color: #a5f3fc;
-            max-height: 220px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-        }
-
-        .toast-bubble {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: rgba(13, 17, 28, 0.95);
-            backdrop-filter: blur(25px);
-            border: 1px solid var(--neon-cyan);
-            padding: 1rem 1.75rem;
-            border-radius: var(--radius-md);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 240, 255, 0.3);
-            display: none;
-            z-index: 4000;
-            font-size: 0.875rem;
-            font-weight: 600;
-        }
-
-        @media (max-width: 900px) {
-            header { padding: 1rem; }
-            main { padding: 1rem; }
-            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-            .analytics-grid { grid-template-columns: 1fr; }
-            .table-search { width: 100%; }
-        }
+        @keyframes shimmer { from { transform: translateX(-100%);} to { transform: translateX(100%);} }
     </style>
 </head>
 <body>
-    <header>
-        <div class="brand-cluster">
-            <div class="brand-monogram">PL</div>
-            <div>
-                <div class="brand-text-title">Police Lattice</div>
-                <div class="brand-text-sub">Autonomous Accountability Synthesis & Verification</div>
-            </div>
-        </div>
-        <div class="header-meta">
-            <div class="live-status-pill">
-                <div class="live-dot"></div>
-                <span>CORE ACTIVE · 68 SOURCES</span>
-            </div>
-            <a href="/docs" class="nav-anchor" target="_blank">Swagger API</a>
-            <a href="/health" class="nav-anchor" target="_blank">Health</a>
-            <a href="/sources" class="nav-anchor" target="_blank">Sources</a>
-        </div>
-    </header>
-
-    <main>
-        <!-- METRICS TELEMETRY GRID -->
-        <div class="kpi-grid">
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Sources Catalog</span>
-                    <span class="pill pill-violet">68 FEEDS</span>
-                </div>
-                <div class="kpi-number" id="kpi-sources">68</div>
-                <div class="kpi-caption">12 Autonomous Ingestion Adapters</div>
-            </div>
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Staging Telemetry</span>
-                    <span class="pill pill-cyan">ACTIVE</span>
-                </div>
-                <div class="kpi-number" id="kpi-staging">0</div>
-                <div class="kpi-caption">Raw Canonical Records</div>
-            </div>
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Incidents Synthesized</span>
-                    <span class="pill pill-emerald">VERIFIED</span>
-                </div>
-                <div class="kpi-number" id="kpi-incidents">0</div>
-                <div class="kpi-caption">Fatalities, UOF & Encounters</div>
-            </div>
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Personnel Recorded</span>
-                    <span class="pill pill-emerald">ROSTER</span>
-                </div>
-                <div class="kpi-number" id="kpi-officers">0</div>
-                <div class="kpi-caption">Officers with Badge & ID</div>
-            </div>
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Arrests & Charges</span>
-                    <span class="pill pill-amber">A.R.S. ENRICHED</span>
-                </div>
-                <div class="kpi-number" id="kpi-arrests">0</div>
-                <div class="kpi-caption">Statutory Violations & Bookings</div>
-            </div>
-            <div class="glass-kpi">
-                <div class="kpi-top">
-                    <span class="kpi-label">Relational Links</span>
-                    <span class="pill pill-cyan">GRAPH EDGES</span>
-                </div>
-                <div class="kpi-number" id="kpi-links">0</div>
-                <div class="kpi-caption">Cross-System Topological Edges</div>
-            </div>
-        </div>
-
-        <!-- COMMAND BAR -->
-        <div class="command-strip">
-            <div>
-                <div class="cmd-heading">Autonomous Lattice Command Center</div>
-                <div class="cmd-subtext">Execute continuous ingestion, canonical normalization, evidence extraction, and graph synthesis</div>
-            </div>
-            <div class="cmd-actions">
-                <button class="btn-apple btn-glow" onclick="executeFullPipeline()">
-                    ⚡ Run Full Pipeline (End-to-End)
-                </button>
-                <button class="btn-apple btn-glass" onclick="triggerAction('/ingest/run', 'Ingestion completed')">
-                    Ingest Feeds
-                </button>
-                <button class="btn-apple btn-glass" onclick="triggerAction('/synthesis/run', 'Synthesis completed')">
-                    Synthesize
-                </button>
-                <button class="btn-apple btn-glass" onclick="triggerAction('/resolve/pending', 'Dependencies resolved')">
-                    Resolve
-                </button>
-                <button class="btn-apple btn-glass" onclick="refreshDashboardData()">
-                    ↻ Refresh
-                </button>
-            </div>
-        </div>
-
-        <!-- HIGH-CONTRAST ULTRAVIOLET NEON CHARTS -->
-        <div class="analytics-grid">
-            <div class="chart-panel">
-                <div class="chart-header">
-                    <div class="chart-headline">Temporal Incident Velocity & Fatality Timeline</div>
-                    <span class="chart-badge">MONTHLY TREND</span>
-                </div>
-                <div class="chart-container-box">
-                    <canvas id="canvas-timeline"></canvas>
-                </div>
-            </div>
-            <div class="chart-panel">
-                <div class="chart-header">
-                    <div class="chart-headline">Use of Force & Tactical Intervention Taxonomy</div>
-                    <span class="chart-badge">FORCE BREAKDOWN</span>
-                </div>
-                <div class="chart-container-box">
-                    <canvas id="canvas-taxonomy"></canvas>
-                </div>
-            </div>
-            <div class="chart-panel">
-                <div class="chart-header">
-                    <div class="chart-headline">Agency Accountability & Jurisdictional Distribution</div>
-                    <span class="chart-badge">AGENCIES</span>
-                </div>
-                <div class="chart-container-box">
-                    <canvas id="canvas-agencies"></canvas>
-                </div>
-            </div>
-            <div class="chart-panel">
-                <div class="chart-header">
-                    <div class="chart-headline">Relational Graph Edge Connectivity Distribution</div>
-                    <span class="chart-badge">TOPOLOGY</span>
-                </div>
-                <div class="chart-container-box">
-                    <canvas id="canvas-topology"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- DATA EXPLORER TABS -->
+<header>
+    <div class="brand-cluster">
+        <div class="brand-monogram">PL</div>
         <div>
-            <div class="explorer-tabs">
-                <button class="tab-item active" onclick="switchTab('tab-incidents')">Incidents & Fatalities</button>
-                <button class="tab-item" onclick="switchTab('tab-officers')">Law Enforcement Personnel</button>
-                <button class="tab-item" onclick="switchTab('tab-links')">Topological Entity Links</button>
-                <button class="tab-item" onclick="switchTab('tab-sources')">Sources Catalog (68 Feeds)</button>
-                <button class="tab-item" onclick="switchTab('tab-suspended')">Suspended Staging</button>
-            </div>
-
-            <!-- TAB: INCIDENTS -->
-            <div id="tab-incidents" class="explorer-view active">
-                <div class="glass-table-card">
-                    <div class="table-bar">
-                        <div class="table-bar-title">Synthesized Incidents & Fatal Encounters</div>
-                        <input type="text" id="search-incidents" class="table-search" placeholder="Filter by type, location, victim, agency..." onkeyup="filterIncidents()">
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Incident Type</th>
-                                    <th>Date / Time (UTC)</th>
-                                    <th>Location</th>
-                                    <th>Agency</th>
-                                    <th>Subject / Victim</th>
-                                    <th>Officers Involved</th>
-                                    <th>Provenance</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rows-incidents">
-                                <tr><td colspan="8" style="text-align:center; padding:3rem; color:var(--text-muted);">Loading incidents telemetry...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: OFFICERS -->
-            <div id="tab-officers" class="explorer-view">
-                <div class="glass-table-card">
-                    <div class="table-bar">
-                        <div class="table-bar-title">Law Enforcement Personnel Roster</div>
-                        <input type="text" id="search-officers" class="table-search" placeholder="Filter by badge, employee ID, name, rank, notes..." onkeyup="filterOfficers()">
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Badge #</th>
-                                    <th>Employee ID</th>
-                                    <th>Officer Name</th>
-                                    <th>Rank</th>
-                                    <th>Agency</th>
-                                    <th>Status / Disciplinary Note</th>
-                                    <th>Linked Incidents</th>
-                                    <th>Provenance</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rows-officers">
-                                <tr><td colspan="9" style="text-align:center; padding:3rem; color:var(--text-muted);">Loading personnel roster...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: LINKS -->
-            <div id="tab-links" class="explorer-view">
-                <div class="glass-table-card">
-                    <div class="table-bar">
-                        <div class="table-bar-title">Topological Lattice Entity Links</div>
-                        <input type="text" id="search-links" class="table-search" placeholder="Filter by entity, relation type, join key..." onkeyup="filterLinks()">
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Source Entity</th>
-                                    <th>Relationship Type</th>
-                                    <th>Target Entity</th>
-                                    <th>Explicit Join Key</th>
-                                    <th>Confidence</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rows-links">
-                                <tr><td colspan="6" style="text-align:center; padding:3rem; color:var(--text-muted);">Loading graph topology...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: SOURCES -->
-            <div id="tab-sources" class="explorer-view">
-                <div class="glass-table-card">
-                    <div class="table-bar">
-                        <div class="table-bar-title">Sources Catalog Registry (68 Feeds)</div>
-                        <input type="text" id="search-sources" class="table-search" placeholder="Search catalog sources..." onkeyup="filterSources()">
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Source ID</th>
-                                    <th>Source Name</th>
-                                    <th>Category</th>
-                                    <th>Adapter</th>
-                                    <th>Access Mode</th>
-                                    <th>Schedule</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rows-sources">
-                                <tr><td colspan="6" style="text-align:center; padding:3rem; color:var(--text-muted);">Loading sources catalog...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TAB: SUSPENDED -->
-            <div id="tab-suspended" class="explorer-view">
-                <div class="glass-table-card">
-                    <div class="table-bar">
-                        <div class="table-bar-title">Suspended Staging Records</div>
-                    </div>
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Source ID</th>
-                                    <th>Entity Type</th>
-                                    <th>Suspension Reason</th>
-                                    <th>Record Hash</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rows-suspended">
-                                <tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--neon-emerald);">✓ All dependencies satisfied. 0 suspended staging records.</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- PROVENANCE INSPECTOR MODAL -->
-    <div id="modal-inspector" class="modal-backdrop" onclick="closeInspector(event)">
-        <div class="inspector-window" onclick="event.stopPropagation()">
-            <div class="inspector-header">
-                <div class="inspector-title" id="insp-title">Entity Provenance & Verification</div>
-                <button class="btn-inspect" onclick="closeInspectorDirect()">Close</button>
-            </div>
-            <div class="inspector-body">
-                <div>
-                    <div class="inspector-section-title">Chain of Custody & Audit Fingerprint</div>
-                    <div class="provenance-card">
-                        <div class="provenance-row">
-                            <span class="provenance-label">Original Catalog Source:</span>
-                            <span class="provenance-value" id="insp-source-id">-</span>
-                        </div>
-                        <div class="provenance-row">
-                            <span class="provenance-label">External Canonical Identifier:</span>
-                            <span class="provenance-value" id="insp-ext-id">-</span>
-                        </div>
-                        <div class="provenance-row">
-                            <span class="provenance-label">Record Checksum / Hash:</span>
-                            <span class="provenance-value" id="insp-hash">-</span>
-                        </div>
-                        <div class="provenance-row">
-                            <span class="provenance-label">Verification Confidence Score:</span>
-                            <span class="provenance-value" id="insp-confidence" style="color:var(--neon-emerald);">100% Verified</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="inspector-section-title">Extracted Evidence Snippets</div>
-                    <div class="provenance-card" id="insp-evidence-card">
-                        <div style="color:var(--text-muted); font-size:0.8125rem;">No direct evidence quotes attached.</div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="inspector-section-title">Underlying Canonical Payload (JSON)</div>
-                    <pre class="raw-json-box" id="insp-raw-json">{}</pre>
-                </div>
-            </div>
+            <div class="brand-text-title">Police Lattice</div>
+            <div class="brand-text-sub">Search → Gather → Organize → Process → Verify → Synthesize · live external data only</div>
         </div>
     </div>
+    <div class="header-controls">
+        <input id="searchInput" class="search-input" type="search" placeholder="Search lattice (semantic + lexical + literal)…" autocomplete="off">
+        <select id="monthSelect" class="month-select" aria-label="Select data month">
+            <option value="">Live · current month</option>
+        </select>
+        <div id="statusPill" class="live-pill"><span class="live-dot"></span><span id="statusText">LIVE</span></div>
+    </div>
+</header>
 
-    <!-- TOAST NOTIFICATION -->
-    <div id="toast" class="toast-bubble"></div>
+<main>
+    <div id="summaryStrip" class="summary-strip skeleton">Loading live analytics…</div>
 
-    <script>
-        let cachedSources = [];
-        let cachedIncidents = [];
-        let cachedOfficers = [];
-        let cachedLinks = [];
-        
-        let chartTimeline = null;
-        let chartTaxonomy = null;
-        let chartAgencies = null;
-        let chartTopology = null;
+    <div class="kpi-grid" id="kpiGrid"></div>
 
-        function showToast(msg, isError = false) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.style.borderColor = isError ? 'var(--neon-red)' : 'var(--neon-cyan)';
-            toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 4500);
-        }
+    <section class="panel search-results" id="searchPanel">
+        <div class="panel-title">Hybrid retrieval results</div>
+        <div class="panel-sub" id="searchMeta"></div>
+        <div id="searchHits"></div>
+    </section>
 
-        function switchTab(tabId) {
-            document.querySelectorAll('.explorer-view').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            const btn = Array.from(document.querySelectorAll('.tab-item')).find(b => b.getAttribute('onclick').includes(tabId));
-            if (btn) btn.classList.add('active');
-        }
+    <section class="panel">
+        <div class="panel-title">Force taxonomy · agency distribution · incident types</div>
+        <div class="panel-sub">
+            Exact pipeline output, zero truncation. Records whose source data does not state a
+            value are counted under explicit “Unclassified / Unattributed” labels — never invented.
+        </div>
+        <div class="charts-grid">
+            <div class="chart-box">
+                <div class="chart-title">Use-of-force taxonomy — <span class="month-label"></span></div>
+                <canvas id="forcePie"></canvas>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Incidents by agency — <span class="month-label"></span></div>
+                <canvas id="agencyPie"></canvas>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Incident types — <span class="month-label"></span></div>
+                <canvas id="typePie"></canvas>
+            </div>
+        </div>
+    </section>
 
-        async function executeFullPipeline() {
-            showToast('⚡ Executing Ingestion, Canonical Normalization, Evidence Extraction & Synthesis...');
-            try {
-                const res = await fetch('/pipeline/run-full', { method: 'POST' });
-                const data = await res.json();
-                const totalNew = data.ingestion ? data.ingestion.total_new_records : 0;
-                const synth = data.synthesis ? data.synthesis.processed : 0;
-                showToast(`✓ Pipeline Completed: ${totalNew} Ingested, ${synth} Synthesized.`);
-                await refreshDashboardData();
-            } catch (err) {
-                showToast(`Pipeline Error: ${err.message}`, true);
-            }
-        }
+    <section class="panel">
+        <div class="panel-title">Monthly timeline — incidents, arrests, deaths (12-month window)</div>
+        <div class="timeline-box"><canvas id="timelineChart"></canvas></div>
+    </section>
 
-        async function triggerAction(url, label) {
-            showToast('Executing task...');
-            try {
-                const res = await fetch(url, { method: 'POST' });
-                showToast(`✓ ${label}`);
-                await refreshDashboardData();
-            } catch (err) {
-                showToast(`Error: ${err.message}`, true);
-            }
-        }
+    <section class="panel">
+        <div class="panel-title">Officer anomaly findings — <span class="month-label"></span></div>
+        <div class="panel-sub" id="anomalyMeta">
+            Findings require: count ≥ 3, ≥ 2× agency peer median, and (Benjamini-Hochberg q ≤ 0.05 or robust z ≥ 3.5).
+            Peer groups contain same-agency officers with ≥1 recorded event of the same metric in the same period.
+            Complete per-officer statistics appear in the officer metrics table below — no data omitted.
+        </div>
+        <div id="anomalyFindings"></div>
+    </section>
 
-        async function refreshDashboardData() {
-            await Promise.all([
-                loadAnalyticsAndKPIs(),
-                loadIncidentsTable(),
-                loadOfficersTable(),
-                loadLinksTable(),
-                loadSourcesTable(),
-                loadSuspendedTable()
-            ]);
-        }
-
-        async function loadAnalyticsAndKPIs() {
-            try {
-                const res = await fetch('/api/analytics');
-                const data = await res.json();
-                
-                const s = data.summary || {};
-                document.getElementById('kpi-sources').textContent = s.sources || 68;
-                document.getElementById('kpi-staging').textContent = s.staging_records || 0;
-                document.getElementById('kpi-incidents').textContent = s.incidents || 0;
-                document.getElementById('kpi-officers').textContent = s.officers || 0;
-                document.getElementById('kpi-arrests').textContent = (s.arrests || 0) + (s.charges || 0);
-                document.getElementById('kpi-links').textContent = s.relational_links || 0;
-
-                renderAnalyticsCharts(data);
-            } catch (err) {
-                console.error('Analytics load error:', err);
-            }
-        }
-
-        function renderAnalyticsCharts(data) {
-            if (typeof Chart === 'undefined') return;
-
-            // 1. Timeline Chart
-            const ctxTime = document.getElementById('canvas-timeline');
-            if (ctxTime && data.timeline) {
-                if (chartTimeline) chartTimeline.destroy();
-                chartTimeline = new Chart(ctxTime, {
-                    type: 'line',
-                    data: {
-                        labels: data.timeline.labels,
-                        datasets: [
-                            {
-                                label: 'All Incidents',
-                                data: data.timeline.incidents,
-                                borderColor: '#00f0ff',
-                                backgroundColor: 'rgba(0, 240, 255, 0.12)',
-                                borderWidth: 2.5,
-                                fill: true,
-                                tension: 0.35,
-                                pointBackgroundColor: '#00f0ff',
-                                pointRadius: 4
-                            },
-                            {
-                                label: 'Fatal Encounters',
-                                data: data.timeline.fatalities,
-                                borderColor: '#9d4edd',
-                                backgroundColor: 'rgba(157, 78, 221, 0.15)',
-                                borderWidth: 2,
-                                fill: true,
-                                tension: 0.35,
-                                pointBackgroundColor: '#9d4edd',
-                                pointRadius: 4
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'top', labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } }
-                        },
-                        scales: {
-                            x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b' } },
-                            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748b', stepSize: 1 } }
-                        }
-                    }
-                });
-            }
-
-            // 2. Force Taxonomy Doughnut Chart
-            const ctxTax = document.getElementById('canvas-taxonomy');
-            if (ctxTax && data.force_taxonomy) {
-                if (chartTaxonomy) chartTaxonomy.destroy();
-                chartTaxonomy = new Chart(ctxTax, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.force_taxonomy.labels,
-                        datasets: [{
-                            data: data.force_taxonomy.counts,
-                            backgroundColor: ['#00f0ff', '#9d4edd', '#00dfd8', '#f59e0b', '#ff007a', '#7928ca'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'right', labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } }
-                        },
-                        cutout: '72%'
-                    }
-                });
-            }
-
-            // 3. Agency Distribution Bar Chart
-            const ctxAgency = document.getElementById('canvas-agencies');
-            if (ctxAgency && data.agency_distribution) {
-                if (chartAgencies) chartAgencies.destroy();
-                chartAgencies = new Chart(ctxAgency, {
-                    type: 'bar',
-                    data: {
-                        labels: data.agency_distribution.labels,
-                        datasets: [
-                            {
-                                label: 'Incidents / Encounters',
-                                data: data.agency_distribution.incidents,
-                                backgroundColor: '#00f0ff',
-                                borderRadius: 6
-                            },
-                            {
-                                label: 'Officers on Roster',
-                                data: data.agency_distribution.officers,
-                                backgroundColor: '#9d4edd',
-                                borderRadius: 6
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'top', labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } }
-                        },
-                        scales: {
-                            x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
-                            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#94a3b8', stepSize: 2 } }
-                        }
-                    }
-                });
-            }
-
-            // 4. Graph Topology Doughnut Chart
-            const ctxTop = document.getElementById('canvas-topology');
-            if (ctxTop && data.graph_topology) {
-                if (chartTopology) chartTopology.destroy();
-                chartTopology = new Chart(ctxTop, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.graph_topology.labels,
-                        datasets: [{
-                            data: data.graph_topology.counts,
-                            backgroundColor: ['#00f0ff', '#9d4edd', '#00dfd8', '#f59e0b'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'right', labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } } }
-                        },
-                        cutout: '72%'
-                    }
-                });
-            }
-        }
-
-        async function loadIncidentsTable() {
-            const tbody = document.getElementById('rows-incidents');
-            try {
-                const res = await fetch('/incidents?limit=250');
-                cachedIncidents = await res.json();
-                renderIncidents(cachedIncidents);
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--neon-red);">Error loading incidents: ${err.message}</td></tr>`;
-            }
-        }
-
-        function formatDateTime(isoStr) {
-            if (!isoStr) return 'Date Undisclosed';
-            const dt = new Date(isoStr);
-            if (isNaN(dt.getTime())) return isoStr;
-            return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' + dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) + ' UTC';
-        }
-
-        function renderIncidents(list) {
-            const tbody = document.getElementById('rows-incidents');
-            if (!list || list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:3rem; color:var(--text-muted);">No incidents synthesized. Click "⚡ Run Full Pipeline".</td></tr>';
-                return;
-            }
-            tbody.innerHTML = list.map(i => {
-                const officersHtml = (i.officers_involved && i.officers_involved.length > 0)
-                    ? i.officers_involved.map(o => `<span class="pill pill-violet">${o.rank} ${o.name} (#${o.badge_number})</span>`).join(' ')
-                    : '<span style="color:var(--text-muted);">Pending Identification</span>';
-
-                let typeBadge = 'pill-cyan';
-                if ((i.incident_type || '').includes('death') || (i.incident_type || '').includes('fatal')) typeBadge = 'pill-pink';
-                if ((i.incident_type || '').includes('force')) typeBadge = 'pill-violet';
-
-                return `
+    <section class="panel">
+        <div class="panel-title">Officer metrics — complete table (<span class="month-label"></span>)</div>
+        <div class="panel-sub">Every officer in the lattice with exact counts for the selected month. Click a column header to sort.</div>
+        <div class="table-scroll">
+            <table class="data-table" id="officerTable">
+                <thead>
                     <tr>
-                        <td class="code-cell">#${i.id}</td>
-                        <td><span class="pill ${typeBadge}">${i.incident_type || 'Incident'}</span></td>
-                        <td class="code-cell">${formatDateTime(i.occurred_at)}</td>
-                        <td>${i.location || 'Location Undisclosed'}</td>
-                        <td><span class="pill pill-violet">${i.agency_name}</span></td>
-                        <td><strong>${i.subject_name || 'Subject Unknown'}</strong></td>
-                        <td>${officersHtml}</td>
-                        <td>
-                            <button class="btn-inspect" onclick="inspectIncident(${i.id})">🔍 Provenance</button>
-                        </td>
+                        <th data-k="label">Officer</th>
+                        <th data-k="badge_number">Badge</th>
+                        <th data-k="employee_id">Employee ID</th>
+                        <th data-k="agency">Agency</th>
+                        <th data-k="incidents_involved" data-n>Incidents involved</th>
+                        <th data-k="use_of_force_events" data-n>Use-of-force events</th>
+                        <th data-k="arrests_linked" data-n>Arrests linked</th>
                     </tr>
-                `;
-            }).join('');
-        }
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
 
-        function filterIncidents() {
-            const q = document.getElementById('search-incidents').value.toLowerCase();
-            const filtered = cachedIncidents.filter(i => {
-                const text = `${i.incident_type} ${i.location} ${i.agency_name} ${i.subject_name} ${JSON.stringify(i.officers_involved || '')}`.toLowerCase();
-                return text.includes(q);
-            });
-            renderIncidents(filtered);
-        }
-
-        async function loadOfficersTable() {
-            const tbody = document.getElementById('rows-officers');
-            try {
-                const res = await fetch('/officers?limit=250');
-                cachedOfficers = await res.json();
-                renderOfficers(cachedOfficers);
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--neon-red);">Error loading officers: ${err.message}</td></tr>`;
-            }
-        }
-
-        function renderOfficers(list) {
-            const tbody = document.getElementById('rows-officers');
-            if (!list || list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:3rem; color:var(--text-muted);">No officers recorded. Click "⚡ Run Full Pipeline".</td></tr>';
-                return;
-            }
-            tbody.innerHTML = list.map(o => `
-                <tr>
-                    <td class="code-cell">#${o.id}</td>
-                    <td class="code-cell"><strong>${o.badge_number}</strong></td>
-                    <td class="code-cell">${o.employee_id}</td>
-                    <td><strong>${o.full_name}</strong></td>
-                    <td><span class="pill pill-violet">${o.rank}</span></td>
-                    <td><span class="pill pill-cyan">${o.agency_name}</span></td>
-                    <td><span class="pill pill-amber">${o.notes || o.status}</span></td>
-                    <td class="code-cell"><span class="pill pill-emerald">${o.incidents_count} Encounters</span></td>
-                    <td>
-                        <button class="btn-inspect" onclick="inspectOfficer(${o.id})">🔍 Provenance</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function filterOfficers() {
-            const q = document.getElementById('search-officers').value.toLowerCase();
-            const filtered = cachedOfficers.filter(o => {
-                const text = `${o.badge_number} ${o.employee_id} ${o.full_name} ${o.rank} ${o.agency_name} ${o.notes}`.toLowerCase();
-                return text.includes(q);
-            });
-            renderOfficers(filtered);
-        }
-
-        async function loadLinksTable() {
-            const tbody = document.getElementById('rows-links');
-            try {
-                const res = await fetch('/links?limit=500');
-                cachedLinks = await res.json();
-                renderLinks(cachedLinks);
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--neon-red);">Error loading links: ${err.message}</td></tr>`;
-            }
-        }
-
-        function renderLinks(list) {
-            const tbody = document.getElementById('rows-links');
-            if (!list || list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:3rem; color:var(--text-muted);">No links synthesized.</td></tr>';
-                return;
-            }
-            tbody.innerHTML = list.map(l => {
-                let badgeClass = 'pill-cyan';
-                if (l.relation_type === 'involved_in') badgeClass = 'pill-violet';
-                if (l.relation_type === 'derived_from') badgeClass = 'pill-emerald';
-                return `
+    <section class="panel">
+        <div class="panel-title">Incidents — full records (<span class="month-label"></span>)</div>
+        <div class="panel-sub">Complete incident rows bound directly to pipeline output; expand any row for the entire raw data payload.</div>
+        <div class="table-scroll">
+            <table class="data-table" id="incidentTable">
+                <thead>
                     <tr>
-                        <td class="code-cell">#${l.id}</td>
-                        <td class="code-cell"><strong>${l.source_entity}</strong> #${l.source_id}</td>
-                        <td><span class="pill ${badgeClass}">${l.relation_type}</span></td>
-                        <td class="code-cell"><strong>${l.target_entity}</strong> #${l.target_id}</td>
-                        <td class="code-cell"><strong>${l.join_key}</strong></td>
-                        <td class="code-cell"><span class="pill pill-emerald">${(l.confidence * 100).toFixed(0)}% MATCH</span></td>
+                        <th data-k="incident_number">Incident #</th>
+                        <th data-k="incident_type">Type</th>
+                        <th data-k="occurred_at">Occurred (UTC)</th>
+                        <th data-k="location">Location</th>
+                        <th data-k="agency_name">Agency</th>
+                        <th data-k="subject_name">Subject</th>
+                        <th data-k="force_type">Force type</th>
+                        <th data-k="officers_involved">Officers involved</th>
+                        <th>Raw data</th>
                     </tr>
-                `;
-            }).join('');
-        }
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div style="margin-top:0.8rem; display:flex; gap:0.6rem; align-items:center;">
+            <button id="incidentMore" class="month-select" style="border-radius:10px; cursor:pointer;">Load more incidents</button>
+            <span id="incidentCount" class="panel-sub" style="margin:0;"></span>
+        </div>
+    </section>
 
-        function filterLinks() {
-            const q = document.getElementById('search-links').value.toLowerCase();
-            const filtered = cachedLinks.filter(l => {
-                const text = `${l.source_entity} ${l.relation_type} ${l.target_entity} ${l.join_key}`.toLowerCase();
-                return text.includes(q);
-            });
-            renderLinks(filtered);
-        }
+    <section class="panel">
+        <div class="panel-title">Source provenance — records ingested in <span class="month-label"></span></div>
+        <div class="table-scroll" style="max-height:420px;">
+            <table class="data-table" id="provenanceTable">
+                <thead><tr><th>Source</th><th>Source ID</th><th>Raw records</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
 
-        async function loadSourcesTable() {
-            const tbody = document.getElementById('rows-sources');
-            try {
-                const res = await fetch('/sources');
-                cachedSources = await res.json();
-                renderSources(cachedSources);
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--neon-red);">Error loading sources: ${err.message}</td></tr>`;
-            }
-        }
+    <section class="panel">
+        <div class="panel-title">Immutable chron-archive — monthly data log files (stored in the Railway database)</div>
+        <div class="panel-sub">
+            Every month the pipeline persists discrete, SHA-256-addressed, append-only files
+            (raw records · staging + verification · entities · analytics snapshot · anomaly findings).
+            Historical months render with exact parity to the live view via these files.
+        </div>
+        <div class="table-scroll" style="max-height:480px;">
+            <table class="data-table" id="archiveTable">
+                <thead><tr><th>Month</th><th>Kind</th><th>File</th><th>Records</th><th>Size</th><th>SHA-256</th><th>Archived (UTC)</th><th>Download</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+</main>
 
-        function renderSources(list) {
-            const tbody = document.getElementById('rows-sources');
-            tbody.innerHTML = list.map(s => `
-                <tr>
-                    <td class="code-cell"><strong>${s.id}</strong></td>
-                    <td><strong>${s.name}</strong></td>
-                    <td><span class="pill pill-violet">${s.category || 'official'}</span></td>
-                    <td class="code-cell">${s.adapter || 'api'}</td>
-                    <td><span class="pill pill-cyan">${s.access_mode || 'api'}</span></td>
-                    <td class="code-cell">${s.schedule || 'on-demand'}</td>
-                </tr>
-            `).join('');
-        }
+<footer>
+    Police Lattice · fully autonomous pipeline · zero mock data · every value above originates from live external
+    public records and is verified before synthesis.<br>
+    Operation sequence enforced: Search → Gather → Organize → Process → Verify → Synthesize.
+</footer>
 
-        function filterSources() {
-            const q = document.getElementById('search-sources').value.toLowerCase();
-            const filtered = cachedSources.filter(s => {
-                const text = `${s.id} ${s.name} ${s.category} ${s.adapter} ${s.access_mode}`.toLowerCase();
-                return text.includes(q);
-            });
-            renderSources(filtered);
-        }
+<script>
+"use strict";
 
-        async function loadSuspendedTable() {
-            const tbody = document.getElementById('rows-suspended');
-            try {
-                const res = await fetch('/staging/suspended?limit=250');
-                const list = await res.json();
-                if (!list || list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--neon-emerald);">✓ All dependencies satisfied. 0 suspended staging records.</td></tr>';
-                    return;
+/* ============================================================
+   Client state store — month datasets are fetched AT MOST ONCE
+   and cached; toggling months re-renders from cache (no refetch,
+   no layout shift: containers have fixed heights, charts update
+   in place with animation disabled).
+   ============================================================ */
+const Store = {
+    cache: new Map(),          // monthKey -> analytics payload ("" key = live)
+    months: null,              // /api/months payload
+    incidentsCache: new Map(), // monthKey -> {rows, offset, exhausted}
+    activeMonth: "",
+    charts: {},
+    sortState: {},
+};
+
+const PALETTE = [
+    "#9d4edd","#00f0ff","#00dfd8","#f59e0b","#ef4444","#10b981","#ff007a","#7928ca",
+    "#60a5fa","#f97316","#a3e635","#e879f9","#22d3ee","#fb7185","#34d399","#c084fc",
+    "#facc15","#38bdf8","#fca5a5","#4ade80"
+];
+
+const $ = (id) => document.getElementById(id);
+
+function fmtInt(n) {
+    if (n === null || n === undefined) return "—";
+    return Number(n).toLocaleString("en-US");
+}
+function fmtBytes(b) {
+    if (b === null || b === undefined) return "—";
+    if (b < 1024) return b + " B";
+    if (b < 1024*1024) return (b/1024).toFixed(1) + " KiB";
+    return (b/1024/1024).toFixed(2) + " MiB";
+}
+function esc(s) {
+    if (s === null || s === undefined) return "—";
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+/* ---------------- data access (fetch-once semantics) ---------------- */
+
+async function fetchJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) {
+        let detail = r.statusText;
+        try { detail = (await r.json()).detail || detail; } catch (e) {}
+        throw new Error(detail);
+    }
+    return r.json();
+}
+
+async function getAnalytics(month) {
+    const key = month || "";
+    if (!Store.cache.has(key)) {
+        const url = month ? `/api/analytics?month=${encodeURIComponent(month)}` : "/api/analytics";
+        Store.cache.set(key, await fetchJSON(url));
+    }
+    return Store.cache.get(key);
+}
+
+/* ---------------- chart helpers ---------------- */
+
+function pieColors(n) {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push(PALETTE[i % PALETTE.length]);
+    return out;
+}
+
+function makePie(canvasId) {
+    return new Chart($(canvasId), {
+        type: "pie",
+        data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderColor: "rgba(0,0,0,0.6)", borderWidth: 2 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: { position: "right", labels: { color: "#94a3b8", font: { size: 11, family: "Inter" }, boxWidth: 12, padding: 10 } },
+                tooltip: {
+                    backgroundColor: "rgba(0,0,0,0.9)", borderColor: "rgba(157,78,221,.4)", borderWidth: 1,
+                    callbacks: { label: (ctx) => {
+                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        const pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) + "%" : "0%";
+                        return ` ${ctx.label}: ${ctx.parsed} (${pct})`;
+                    }}
                 }
-                tbody.innerHTML = list.map(s => `
-                    <tr>
-                        <td class="code-cell">#${s.id}</td>
-                        <td class="code-cell"><strong>${s.source_id}</strong></td>
-                        <td><span class="pill pill-cyan">${s.entity_type}</span></td>
-                        <td style="color:var(--neon-amber);">${s.suspension_reason || '-'}</td>
-                        <td class="code-cell">${s.record_hash ? s.record_hash.substring(0, 16) + '...' : '-'}</td>
-                    </tr>
-                `).join('');
-            } catch (err) {
-                console.error(err);
             }
         }
+    });
+}
 
-        // PROVENANCE INSPECTOR LOGIC
-        function inspectIncident(incId) {
-            const inc = cachedIncidents.find(i => i.id === incId);
-            if (!inc) return;
+function updatePie(chart, labels, counts) {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = counts;
+    chart.data.datasets[0].backgroundColor = pieColors(labels.length);
+    chart.update("none"); // no animation -> no layout shift
+}
 
-            document.getElementById('insp-title').textContent = `Incident Provenance: #${inc.id} (${inc.incident_number})`;
-            document.getElementById('insp-source-id').textContent = (inc.external_ids && inc.external_ids.source_id) || 'Seed / Catalog Ingest';
-            document.getElementById('insp-ext-id').textContent = inc.incident_number || `INC-${inc.id}`;
-            document.getElementById('insp-hash').textContent = `SHA256: ${inc.incident_number.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0).toString(16)}`;
+function makeTimeline() {
+    return new Chart($("timelineChart"), {
+        type: "bar",
+        data: {
+            labels: [],
+            datasets: [
+                { label: "Incidents", data: [], backgroundColor: "rgba(157,78,221,0.75)", borderRadius: 4 },
+                { label: "Arrests", data: [], backgroundColor: "rgba(0,240,255,0.6)", borderRadius: 4 },
+                { label: "Deaths", data: [], type: "line", borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,0.15)", fill: true, tension: 0.35, pointRadius: 3 },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { labels: { color: "#94a3b8" } } },
+            scales: {
+                x: { ticks: { color: "#64748b", font: { family: "JetBrains Mono", size: 10 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+                y: { beginAtZero: true, ticks: { color: "#64748b", precision: 0 }, grid: { color: "rgba(255,255,255,0.05)" } }
+            }
+        }
+    });
+}
 
-            const evCard = document.getElementById('insp-evidence-card');
-            const ev = inc.evidence || {};
-            let evHtml = '';
-            if (ev.force_tactics && ev.force_tactics.length > 0) {
-                evHtml += `<div style="font-size:0.8125rem; margin-bottom:0.4rem;"><strong>Extracted Force Tactic:</strong> <span class="pill pill-violet">${ev.force_tactics[0].force_category}</span> (Confidence: ${(ev.force_tactics[0].confidence * 100).toFixed(0)}%)</div>`;
-                if (ev.force_tactics[0].snippet) {
-                    evHtml += `<div class="code-cell" style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px; font-size:0.72rem;">"${ev.force_tactics[0].snippet}"</div>`;
+/* ---------------- renderers ---------------- */
+
+function renderSummary(payload) {
+    const s = payload.summary || {};
+    const isArchived = payload.mode === "archived";
+    const tag = isArchived
+        ? `<span class="mode-tag archived">ARCHIVED ${esc(payload.archive ? payload.archive.sha256.slice(0,12) : "")}</span>`
+        : `<span class="mode-tag">LIVE</span>`;
+    const summaryText = payload.plain_language_summary ||
+        `${esc(payload.month)}: ${fmtInt(s.incidents)} incidents, ${fmtInt(s.officers)} officers, ${fmtInt(s.arrests)} arrests, ${fmtInt(s.anomaly_findings)} anomaly findings.`;
+    $("summaryStrip").innerHTML = tag + esc(summaryText).replace(/(\d[\d,]*)/g, "<strong>$1</strong>");
+    $("summaryStrip").classList.remove("skeleton");
+    const pill = $("statusPill");
+    pill.classList.toggle("arch-pill", isArchived);
+    $("statusText").textContent = isArchived ? `ARCHIVE ${payload.month}` : "LIVE";
+}
+
+function renderKPIs(payload) {
+    const s = payload.summary || {};
+    const kpis = [
+        ["Incidents", fmtInt(s.incidents), "this month"],
+        ["Officers", fmtInt(s.officers), "in lattice"],
+        ["Arrests", fmtInt(s.arrests), "this month"],
+        ["Charges", fmtInt(s.charges), "in lattice"],
+        ["News articles", fmtInt(s.news_articles), "this month"],
+        ["Raw records", fmtInt(s.raw_records_ingested), "ingested this month"],
+        ["Staged records", fmtInt(s.staging_records), "this month"],
+        ["Verified passed", fmtInt(s.verified_passed), "all checks"],
+        ["Verify failures", fmtInt(s.verified_failed), "excluded from synthesis"],
+        ["Force incidents", fmtInt(s.force_incidents), "this month"],
+        ["Anomaly findings", fmtInt(s.anomaly_findings), "this month"],
+        ["Relational links", fmtInt(s.relational_links), "in lattice"],
+    ];
+    $("kpiGrid").innerHTML = kpis.map(([label, value, sub]) => `
+        <div class="glass-kpi"><div class="kpi-label">${label}</div>
+        <div class="kpi-value">${value}</div><div class="kpi-sub">${sub}</div></div>`).join("");
+}
+
+function renderMonthLabels(month) {
+    document.querySelectorAll(".month-label").forEach(el => el.textContent = month);
+}
+
+function renderCharts(payload) {
+    updatePie(Store.charts.force, payload.force_taxonomy.labels, payload.force_taxonomy.counts);
+    updatePie(Store.charts.agency, payload.agency_distribution.labels, payload.agency_distribution.incidents);
+    updatePie(Store.charts.type, payload.incident_types.labels, payload.incident_types.counts);
+    const t = payload.timeline;
+    Store.charts.timeline.data.labels = t.labels;
+    Store.charts.timeline.data.datasets[0].data = t.incidents;
+    Store.charts.timeline.data.datasets[1].data = t.arrests;
+    Store.charts.timeline.data.datasets[2].data = t.deaths;
+    Store.charts.timeline.update("none");
+}
+
+function renderAnomalies(payload) {
+    const findings = payload.anomaly_findings || [];
+    const host = $("anomalyFindings");
+    if (!findings.length) {
+        host.innerHTML = `<div class="empty-state">No officer anomaly findings recorded for ${esc(payload.month)}.
+        Every officer's exact counts remain available in the officer metrics table below — no data omitted.</div>`;
+        return;
+    }
+    host.innerHTML = findings.map(f => `
+        <div class="finding-card">
+            <div class="finding-head">
+                <span class="finding-name">${esc(f.officer_label)}</span>
+                <span class="finding-metric">${esc(f.metric.replace(/_/g," "))}</span>
+                ${f.agency_name ? `<span class="badge">${esc(f.agency_name)}</span>` : ""}
+                ${f.badge_number ? `<span class="badge">badge ${esc(f.badge_number)}</span>` : ""}
+            </div>
+            <div class="finding-stats">
+                <div class="stat"><b>${fmtInt(f.metric_value)}</b><span>officer count</span></div>
+                <div class="stat"><b>${f.peer_median}</b><span>peer median</span></div>
+                <div class="stat"><b>${f.peer_mean != null ? Number(f.peer_mean).toFixed(2) : "—"}</b><span>peer mean</span></div>
+                <div class="stat"><b>${fmtInt(f.peer_max)}</b><span>peer max</span></div>
+                <div class="stat"><b>${f.ratio_to_median != null ? f.ratio_to_median.toFixed(2) + "×" : "—"}</b><span>vs median</span></div>
+                <div class="stat"><b>${f.robust_z != null ? f.robust_z.toFixed(2) : "n/c"}</b><span>robust z</span></div>
+                <div class="stat"><b>${f.poisson_p != null ? f.poisson_p.toExponential(2) : "—"}</b><span>Poisson p</span></div>
+                <div class="stat"><b>${f.bh_q != null ? f.bh_q.toExponential(2) : "—"}</b><span>BH q</span></div>
+            </div>
+            <div class="finding-narrative">${esc(f.narrative)}</div>
+            ${f.evidence && f.evidence.length ? `<details class="raw-details"><summary>${f.evidence.length} source record(s) — full evidence</summary><pre>${esc(JSON.stringify(f.evidence, null, 2))}</pre></details>` : ""}
+        </div>`).join("");
+}
+
+function renderOfficerTable(rows) {
+    const tbody = $("officerTable").querySelector("tbody");
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No officers in the lattice yet.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = rows.map(r => `
+        <tr>
+            <td>${esc(r.label)}</td>
+            <td class="mono">${esc(r.badge_number ?? "—")}</td>
+            <td class="mono">${esc(r.employee_id ?? "—")}</td>
+            <td>${esc(r.agency)}</td>
+            <td class="mono">${fmtInt(r.incidents_involved)}</td>
+            <td class="mono">${fmtInt(r.use_of_force_events)}</td>
+            <td class="mono">${fmtInt(r.arrests_linked)}</td>
+        </tr>`).join("");
+    attachHeaderSort("officerTable", rows, renderOfficerTable);
+}
+
+function attachHeaderSort(tableId, rows, renderFn) {
+    const state = Store.sortState[tableId] || {};
+    $(tableId).querySelectorAll("th[data-k]").forEach(th => {
+        th.onclick = () => {
+            const key = th.dataset.k;
+            const dir = state.key === key ? -(state.dir || 1) : 1;
+            state.key = key; state.dir = dir;
+            Store.sortState[tableId] = state;
+            rows.sort((a, b) => {
+                let va = a[key], vb = b[key];
+                if (key === "officers_involved") { va = va.length; vb = vb.length; }
+                if (th.hasAttribute("data-n")) {
+                    va = Number(va) || 0; vb = Number(vb) || 0;
+                    return (va - vb) * dir;
                 }
-            } else {
-                evHtml = '<div style="color:var(--text-muted); font-size:0.8125rem;">Direct canonical ingestion record.</div>';
-            }
-            evCard.innerHTML = evHtml;
+                return String(va ?? "").toLowerCase().localeCompare(String(vb ?? "").toLowerCase()) * dir;
+            });
+            renderFn(rows);
+        };
+    });
+}
 
-            document.getElementById('insp-raw-json').textContent = JSON.stringify(inc.data || inc, null, 2);
-            document.getElementById('modal-inspector').style.display = 'flex';
+/* ---------------- incidents (paged, complete) ---------------- */
+
+async function loadIncidents(month, append) {
+    const key = month || "";
+    if (!Store.incidentsCache.has(key)) Store.incidentsCache.set(key, { rows: [], offset: 0, done: false });
+    const st = Store.incidentsCache.get(key);
+    if (st.done && !append) { renderIncidents(st.rows); return; }
+    if (append && st.done) return;
+    const url = `/incidents?limit=100&offset=${st.offset}`;
+    const batch = await fetchJSON(url);
+    st.rows = st.rows.concat(batch);
+    st.offset += batch.length;
+    if (batch.length < 100) st.done = true;
+    renderIncidents(st.rows);
+}
+
+function renderIncidents(rows) {
+    const tbody = $("incidentTable").querySelector("tbody");
+    $("incidentCount").textContent = `${rows.length} loaded`;
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">No incidents synthesized yet. Records appear here only after live sources are ingested and verified.</div></td></tr>`;
+        return;
+    }
+    tbody.innerHTML = rows.map(r => `
+        <tr>
+            <td class="mono">${esc(r.incident_number ?? `INC-${r.id}`)}</td>
+            <td>${esc(r.incident_type ?? "—")}</td>
+            <td class="mono">${esc(r.occurred_at ?? "—")}</td>
+            <td>${esc(r.location ?? "not recorded")}</td>
+            <td>${esc(r.agency_name)}</td>
+            <td>${esc(r.subject_name)}</td>
+            <td>${esc(r.force_type ?? "—")}</td>
+            <td>${r.officers_involved.length
+                ? r.officers_involved.map(o => esc(o.name || `#${o.badge_number}`)).join(", ")
+                : "none recorded"}</td>
+            <td><details class="raw-details"><summary>data</summary><pre>${esc(JSON.stringify(r.data ?? {}, null, 2))}</pre></details></td>
+        </tr>`).join("");
+    attachHeaderSort("incidentTable", rows, renderIncidents);
+}
+
+/* ---------------- provenance + archive ---------------- */
+
+function renderProvenance(payload) {
+    const rows = payload.source_provenance || [];
+    const tbody = $("provenanceTable").querySelector("tbody");
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state">No raw records ingested for ${esc(payload.month)}.</div></td></tr>`;
+        return;
+    }
+    tbody.innerHTML = rows.map(r => `
+        <tr><td>${esc(r.source_name)}</td><td class="mono">${esc(r.source_id)}</td><td class="mono">${fmtInt(r.raw_records)}</td></tr>`).join("");
+}
+
+async function renderArchive() {
+    try {
+        const data = await fetchJSON("/api/archive/files");
+        const tbody = $("archiveTable").querySelector("tbody");
+        if (!data.files.length) {
+            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">No archive files written yet. The monthly refresh protocol runs on the 1st of each month; trigger manually via POST /archive/refresh.</div></td></tr>`;
+            return;
         }
+        tbody.innerHTML = data.files.map(f => `
+            <tr>
+                <td class="mono">${esc(f.month_key)}</td>
+                <td><span class="badge arch">${esc(f.kind)}</span></td>
+                <td class="mono">${esc(f.filename)}</td>
+                <td class="mono">${fmtInt(f.record_count)}</td>
+                <td class="mono">${fmtBytes(f.size_bytes)}</td>
+                <td class="mono" title="${esc(f.sha256)}">${esc(f.sha256.slice(0,16))}…</td>
+                <td class="mono">${esc(f.created_at)}</td>
+                <td><a class="dl-link" href="${f.download_url}" download>download</a></td>
+            </tr>`).join("");
+    } catch (e) {
+        $("archiveTable").querySelector("tbody").innerHTML =
+            `<tr><td colspan="8" class="empty-state">${esc(e.message)}</td></tr>`;
+    }
+}
 
-        function inspectOfficer(offId) {
-            const off = cachedOfficers.find(o => o.id === offId);
-            if (!off) return;
+/* ---------------- month switching ---------------- */
 
-            document.getElementById('insp-title').textContent = `Officer Provenance: ${off.full_name} (${off.badge_number})`;
-            document.getElementById('insp-source-id').textContent = off.source_id || 'abc15_brady_list_database';
-            document.getElementById('insp-ext-id').textContent = `Badge: ${off.badge_number} | EmpID: ${off.employee_id}`;
-            document.getElementById('insp-hash').textContent = `SHA256: ${off.badge_number.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0).toString(16)}`;
+async function selectMonth(month) {
+    Store.activeMonth = month;
+    let payload;
+    try {
+        payload = await getAnalytics(month);
+    } catch (e) {
+        $("summaryStrip").innerHTML = `Cannot load month <b>${esc(month || "live")}</b>: ${esc(e.message)}`;
+        $("summaryStrip").classList.remove("skeleton");
+        return;
+    }
+    renderMonthLabels(payload.month + (payload.mode === "archived" ? " (archived)" : " (live)"));
+    renderSummary(payload);
+    renderKPIs(payload);
+    renderCharts(payload);
+    renderAnomalies(payload);
+    renderOfficerTable(payload.officer_metrics || []);
+    renderProvenance(payload);
+    await loadIncidents(month, false);
+}
 
-            const evCard = document.getElementById('insp-evidence-card');
-            evCard.innerHTML = `
-                <div style="font-size:0.8125rem; margin-bottom:0.4rem;"><strong>Disciplinary / Roster Record:</strong> <span class="pill pill-amber">${off.notes}</span></div>
-                <div class="provenance-row" style="margin-top:0.5rem;">
-                    <span class="provenance-label">Jurisdictional Agency:</span>
-                    <span class="provenance-value">${off.agency_name}</span>
-                </div>
-                <div class="provenance-row">
-                    <span class="provenance-label">Assigned Rank:</span>
-                    <span class="provenance-value">${off.rank}</span>
-                </div>
-            `;
+async function initMonths() {
+    try {
+        Store.months = await fetchJSON("/api/months");
+    } catch (e) {
+        Store.months = { active_month: new Date().toISOString().slice(0,7), archived_months: [] };
+    }
+    const sel = $("monthSelect");
+    sel.innerHTML = `<option value="">Live · ${esc(Store.months.active_month)}</option>`;
+    for (const m of Store.months.archived_months) {
+        const o = document.createElement("option");
+        o.value = m.month;
+        o.textContent = `${m.month} · archived (${Object.keys(m.kinds).length} files, ${fmtBytes(m.total_bytes)})`;
+        sel.appendChild(o);
+    }
+    sel.onchange = () => selectMonth(sel.value);
+}
 
-            document.getElementById('insp-raw-json').textContent = JSON.stringify(off.external_ids || off, null, 2);
-            document.getElementById('modal-inspector').style.display = 'flex';
+/* ---------------- search ---------------- */
+
+let searchTimer = null;
+$("searchInput").addEventListener("input", (ev) => {
+    const q = ev.target.value.trim();
+    clearTimeout(searchTimer);
+    if (q.length < 2) { $("searchPanel").style.display = "none"; return; }
+    searchTimer = setTimeout(async () => {
+        try {
+            const res = await fetchJSON(`/api/search?q=${encodeURIComponent(q)}&limit=25`);
+            $("searchPanel").style.display = "block";
+            $("searchMeta").textContent =
+                `mode: ${res.mode} · corpus: ${res.corpus_size} documents · semantic backend: ${res.semantic_backend} · index v${res.index_version}`;
+            const hits = res.results || [];
+            $("searchHits").innerHTML = hits.length
+                ? hits.map(h => `
+                    <div class="hit">
+                        <div class="hit-title">${esc(h.title)}</div>
+                        <div class="hit-meta">${esc(h.entity_type)} #${h.entity_id} · RRF ${h.rrf_score} ·
+                            ${Object.entries(h.components).map(([k,v]) => `${k}: rank ${v.rank}`).join(" · ") || "no component ranks"}</div>
+                        <div class="hit-snippet">${esc(h.snippet)}</div>
+                    </div>`).join("")
+                : `<div class="empty-state">No matches for “${esc(q)}”.</div>`;
+        } catch (e) {
+            $("searchPanel").style.display = "block";
+            $("searchMeta").textContent = `search failed: ${e.message}`;
+            $("searchHits").innerHTML = "";
         }
+    }, 250);
+});
 
-        function closeInspector(e) {
-            if (e.target.id === 'modal-inspector') {
-                document.getElementById('modal-inspector').style.display = 'none';
-            }
-        }
+$("incidentMore").addEventListener("click", () => loadIncidents(Store.activeMonth, true));
 
-        function closeInspectorDirect() {
-            document.getElementById('modal-inspector').style.display = 'none';
-        }
+/* ---------------- boot ---------------- */
 
-        // Initialize on page load
-        refreshDashboardData();
-    </script>
+(async function boot() {
+    Store.charts.force = makePie("forcePie");
+    Store.charts.agency = makePie("agencyPie");
+    Store.charts.type = makePie("typePie");
+    Store.charts.timeline = makeTimeline();
+    await initMonths();
+    await selectMonth("");
+    await renderArchive();
+})();
+</script>
 </body>
 </html>

@@ -54,9 +54,10 @@ class SynthesisEngine:
         session.flush()
 
     def _get_or_create_agency(self, name: str | None, state: str | None = "AZ") -> Agency:
-        clean_name = str(name).strip() if name else "Phoenix Police Department"
+        clean_name = str(name).strip() if name else ""
         if not clean_name or clean_name.lower() in ("unknown", "null", "none"):
-            clean_name = "Phoenix Police Department"
+            # Honest labeling of missing attribution — never a fabricated agency.
+            clean_name = "Unattributed Agency"
         agency = self.session.scalar(select(Agency).where(Agency.name == clean_name))
         if not agency:
             agency = Agency(name=clean_name, state=state)
@@ -548,10 +549,12 @@ class SynthesisEngine:
         )
         evidence = staging.payload.get("evidence", {})
 
+        # No fabricated URLs: when the feed does not carry a link, the record
+        # states that explicitly (url=None) rather than inventing one.
         article = NewsArticle(
             source_id=staging.source_id,
-            title=canonical.get("title", f"Accountability Report #{staging.id}"),
-            url=canonical.get("url") or canonical.get("link", f"https://police-lattice.local/news/{staging.id}"),
+            title=canonical.get("title") or f"Untitled feed item (staging {staging.id})",
+            url=canonical.get("url") or canonical.get("link"),
             published_at=normalize_datetime(
                 canonical.get("published_at") or canonical.get("published")
             ),
@@ -666,10 +669,12 @@ class SynthesisEngine:
             self.process_unknown(staging)
 
     def execute(self) -> dict[str, Any]:
-        """Process all pending, ready, and suspended staging records."""
+        """Process all organized/processed/ready/suspended staging records."""
         records = self.session.scalars(
             select(StagingRecord).where(
-                StagingRecord.status.in_(["pending", "ready", "suspended"])
+                StagingRecord.status.in_(
+                    ["pending", "organized", "processed", "ready", "suspended"]
+                )
             )
         ).all()
         stats = {"processed": 0, "suspended": 0, "failed": 0}
