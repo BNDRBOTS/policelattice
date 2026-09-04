@@ -1,55 +1,58 @@
+"""Generic live JSON REST ingestion adapter."""
+
 from __future__ import annotations
 
+import logging
 import os
-from typing import Any
-
-import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 from app.ingestion.base import BaseAdapter, RawRecordDTO
+from app.ingestion.http_client import LiveSourceError, get_fetch_client
+
+logger = logging.getLogger(__name__)
 
 
 class GenericRestAdapter(BaseAdapter):
-    """Ingests a generic JSON REST endpoint.
+    """Ingests rows from a configured live JSON REST endpoint."""
 
-    The URL must be provided via environment variable. Pagination is
-    intentionally not assumed; if the response is a list, it is ingested as-is.
-    """
+    name = "generic_rest"
+    access_mode = "api"
 
-    name = "generic_rest"
-    access_mode = "api"
+    def fetch(self) -> list[RawRecordDTO]:
+        config = self.source_config
+        url_env = config.get("url_env")
+        url = None
+        if url_env:
+            url = getattr(self.settings, url_env.lower(), None) or os.getenv(url_env)
+        url = url or config.get("url")
+        if not url:
+            self.log_skip(f"No url/url_env configured (env {url_env})")
+            return []
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=30))
-    def _get(self, url: str) -> Any:
-        resp = requests.get(url, timeout=60)
-        resp.raise_for_status()
-        return resp.json()
+        try:
+            data = get_fetch_client().get_json(url)
+        except LiveSourceError as exc:
+            self.log_skip(f"REST fetch failed for {url}: {exc}")
+            return []
 
-    def fetch(self) -> list[RawRecordDTO]:
-        url_env = self.source_config.get("url_env")
-        if not url_env:
-            self.log_skip("No url_env configured")
-            return []
+        if isinstance(data, list):
+            rows = data
+        elif isinstance(data, dict):
+            rows = None
+            for key in ("data", "results", "rows", "records", "items", "features"):
+                if isinstance(data.get(key), list):
+                    rows = data[key]
+                    break
+            if rows is None:
+                rows = [data]
+        else:
+            rows = [data]
 
-        url = getattr(self.settings, url_env.lower(), None) or os.getenv(url_env)
-        if not url:
-            self.log_skip(f"Environment variable {url_env} not set")
-            return []
-
-        data = self._get(url)
-        if isinstance(data, list):
-            records = data
-        elif isinstance(data, dict) and "data" in data:
-            records = data["data"]
-        else:
-            records = [data]
-
-        return [
-            RawRecordDTO(
-                content_type="application/json",
-                payload={"row": record},
-                source_id=self.source_config.get("id"),
-                metadata={"adapter": self.name, "url": url},
-            )
-            for record in records
-        ]
+        return [
+            RawRecordDTO(
+                content_type="application/json",
+                payload={"row": row} if isinstance(row, dict) else {"value": row},
+                source_id=self.source_config.get("id"),
+                metadata={"adapter": self.name, "url": url, "live_url": url},
+            )
+            for row in rows
+        ]

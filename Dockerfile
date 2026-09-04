@@ -14,17 +14,18 @@ WORKDIR /app
 ENV POETRY_VERSION=1.6.1
 RUN pip install poetry==$POETRY_VERSION
 
-# Copy dependency files and install Python packages
+# Copy dependency files and install Python packages (without root package)
 COPY pyproject.toml poetry.lock* ./
-RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi --no-dev
+RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi --no-root
 
 # Copy the rest of the application
 COPY . .
 
+# Install the application package
+RUN poetry install --no-interaction --no-ansi
+
 # Create an entrypoint script to run database init and start the server
-RUN echo '#!/bin/sh\n\
-python scripts/init_db.py\n\
-exec uvicorn app.api.main:app --host 0.0.0.0 --port $PORT\n' > /start.sh && chmod +x /start.sh
+RUN printf '#!/bin/sh\npython -m app.api.scripts.init_db\nexec uvicorn app.api.main:app --host 0.0.0.0 --port "${PORT:-8000}"\n' > /start.sh && chmod +x /start.sh
 
 EXPOSE 8000
 

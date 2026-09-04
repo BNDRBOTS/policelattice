@@ -1,0 +1,79 @@
+from __future__ import annotations
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import (
+    Arrest,
+    CourtCase,
+    Incident,
+    Officer,
+    PendingSynthesis,
+    StagingRecord,
+)
+from app.pipeline.state import mark_ready
+
+
+class DependencyResolver:
+    """Attempts to resolve suspended staging records when dependencies arrive.
+
+    It checks PendingSynthesis entries against the current lattice. If the
+    required external key now exists, the staging record is marked ready and
+    the pending dependency is cleared.
+    """
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def resolve(self) -> int:
+        """Check all pending dependencies and resolve those that are satisfied."""
+        pending = self.session.scalars(
+            select(PendingSynthesis).where(PendingSynthesis.status == "waiting")
+        ).all()
+        resolved_count = 0
+        for dep in pending:
+            if self._dependency_exists(
+                dep.required_entity_type, dep.required_key, dep.required_value
+            ):
+                dep.status = "resolved"
+                staging = self.session.get(StagingRecord, dep.staging_record_id)
+                if staging and staging.status == "suspended":
+                    mark_ready(self.session, staging.id)
+                resolved_count += 1
+            else:
+                dep.attempts += 1
+                if dep.attempts > 10:
+                    dep.status = "expired"
+        self.session.commit()
+        return resolved_count
+
+    def _dependency_exists(self, entity_type: str, key: str, value: str) -> bool:
+        """Check if a required entity dependency exists in the lattice."""
+        if entity_type == "officer":
+            if key == "badge_number":
+                return self.session.scalar(
+                    select(Officer).where(Officer.badge_number == value)
+                ) is not None
+            if key == "employee_id":
+                return self.session.scalar(
+                    select(Officer).where(Officer.employee_id == value)
+                ) is not None
+        if entity_type == "incident":
+            # Check external_ids JSONB for the matching key/value
+            stmt = select(Incident).where(Incident.external_ids.contains({key: value}))
+            if self.session.scalar(stmt) is not None:
+                return True
+            if self.session.bind and self.session.bind.dialect.name != "postgresql":
+                for inc in self.session.scalars(select(Incident)).all():
+                    if inc.external_ids and inc.external_ids.get(key) == value:
+                        return True
+            return False
+        if entity_type == "arrest" and key == "booking_number":
+            return self.session.scalar(
+                select(Arrest).where(Arrest.booking_number == value)
+            ) is not None
+        if entity_type == "court_case" and key == "case_number":
+            return self.session.scalar(
+                select(CourtCase).where(CourtCase.case_number == value)
+            ) is not None
+        return False

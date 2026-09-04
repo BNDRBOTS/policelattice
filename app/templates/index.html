@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Police Lattice // Autonomous Accountability & Verification</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-pitch: #000000;
+            --bg-surface: #06080f;
+            --bg-card: rgba(13, 17, 28, 0.65);
+            --bg-card-hover: rgba(22, 29, 46, 0.85);
+            --bg-glass: rgba(255, 255, 255, 0.03);
+            --border-hairline: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(157, 78, 221, 0.5);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --neon-violet: #9d4edd;
+            --neon-cyan: #00f0ff;
+            --neon-emerald: #00dfd8;
+            --neon-green: #10b981;
+            --neon-amber: #f59e0b;
+            --neon-red: #ef4444;
+            --gradient-uv: linear-gradient(135deg, #7928ca 0%, #00f0ff 100%);
+            --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
+            --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+            --radius-sm: 10px;
+            --radius-md: 16px;
+            --radius-lg: 24px;
+            --chart-h: 460px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-apple);
+            background-color: var(--bg-pitch);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+            background-image:
+                radial-gradient(circle at 10% 0%, rgba(121, 40, 202, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 90% 10%, rgba(0, 240, 255, 0.09) 0%, transparent 45%),
+                radial-gradient(circle at 50% 60%, rgba(0, 223, 216, 0.05) 0%, transparent 50%);
+            background-attachment: fixed;
+            -webkit-font-smoothing: antialiased;
+            letter-spacing: -0.011em;
+        }
+        header {
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(30px) saturate(180%);
+            -webkit-backdrop-filter: blur(30px) saturate(180%);
+            border-bottom: 1px solid var(--border-hairline);
+            padding: 1rem 2rem;
+            position: sticky; top: 0; z-index: 1000;
+            display: flex; align-items: center; justify-content: space-between; gap: 1.25rem;
+            flex-wrap: wrap;
+        }
+        .brand-cluster { display: flex; align-items: center; gap: 1rem; }
+        .brand-monogram {
+            width: 38px; height: 38px; border-radius: var(--radius-sm);
+            background: var(--gradient-uv);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.05rem; color: #fff;
+            box-shadow: 0 0 25px rgba(157, 78, 221, 0.45);
+        }
+        .brand-text-title { font-size: 1.05rem; font-weight: 700; letter-spacing: -0.02em; }
+        .brand-text-sub { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
+        .header-controls { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+        .month-select, .search-input {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border-hairline);
+            color: var(--text-primary);
+            border-radius: 9999px;
+            padding: 0.5rem 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            outline: none;
+            transition: border-color .15s ease;
+        }
+        .month-select:focus, .search-input:focus { border-color: var(--border-glow); }
+        .month-select option { background: #0a0e18; }
+        .search-input { width: 240px; }
+        .search-input::placeholder { color: var(--text-muted); }
+        .live-pill {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.35rem 0.9rem; border-radius: 9999px;
+            font-size: 0.7rem; font-weight: 600; font-family: var(--font-mono);
+            background: rgba(0, 223, 216, 0.08); color: var(--neon-emerald);
+            border: 1px solid rgba(0, 223, 216, 0.25);
+        }
+        .live-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background-color: var(--neon-emerald);
+            box-shadow: 0 0 10px var(--neon-emerald);
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+        .arch-pill {
+            background: rgba(157, 78, 221, 0.1); color: #c77dff;
+            border-color: rgba(157, 78, 221, 0.35);
+        }
+        @keyframes pulse-glow { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.35;transform:scale(.85);} }
+        main { flex: 1; padding: 2rem; max-width: 1720px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 1.6rem; }
+
+        .summary-strip {
+            background: var(--bg-card); backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid var(--border-hairline); border-radius: var(--radius-md);
+            padding: 1.2rem 1.5rem; font-size: 0.92rem; line-height: 1.65;
+            color: var(--text-secondary);
+        }
+        .summary-strip strong { color: var(--text-primary); }
+        .summary-strip .mode-tag {
+            font-family: var(--font-mono); font-size: 0.68rem; padding: 0.15rem 0.6rem;
+            border-radius: 9999px; margin-right: 0.6rem; vertical-align: middle;
+            background: rgba(0,223,216,.1); color: var(--neon-emerald); border: 1px solid rgba(0,223,216,.3);
+        }
+        .summary-strip .mode-tag.archived { background: rgba(157,78,221,.12); color: #c77dff; border-color: rgba(157,78,221,.35); }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 1rem; }
+        .glass-kpi {
+            background: var(--bg-card); backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid var(--border-hairline); border-radius: var(--radius-md);
+            padding: 1.1rem 1.25rem; display: flex; flex-direction: column; gap: 0.4rem;
+        }
+        .glass-kpi .kpi-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; }
+        .glass-kpi .kpi-value { font-size: 1.7rem; font-weight: 700; font-family: var(--font-mono); letter-spacing: -0.02em; }
+        .glass-kpi .kpi-sub { font-size: 0.7rem; color: var(--text-secondary); }
+
+        section.panel {
+            background: var(--bg-card); backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid var(--border-hairline); border-radius: var(--radius-md);
+            padding: 1.4rem 1.6rem;
+        }
+        .panel-title { font-size: 1.02rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 0.25rem; }
+        .panel-sub { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5; }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1.4rem; }
+        .chart-box {
+            background: var(--bg-glass); border: 1px solid var(--border-hairline);
+            border-radius: var(--radius-sm); padding: 1.1rem;
+            height: var(--chart-h); position: relative;
+        }
+        .chart-box canvas { width: 100% !important; height: 100% !important; }
+        .chart-title { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.75rem; }
+        .timeline-box { height: 320px; position: relative; padding: 1.1rem; background: var(--bg-glass); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); }
+
+        .finding-card {
+            border: 1px solid rgba(239, 68, 68, 0.28);
+            background: linear-gradient(180deg, rgba(239,68,68,0.06), rgba(239,68,68,0.015));
+            border-radius: var(--radius-sm); padding: 1.2rem 1.4rem; margin-bottom: 1rem;
+        }
+        .finding-head { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+        .finding-name { font-size: 1rem; font-weight: 700; }
+        .finding-metric {
+            font-family: var(--font-mono); font-size: 0.68rem; padding: 0.18rem 0.65rem;
+            border-radius: 9999px; background: rgba(239,68,68,0.14); color: #fca5a5;
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+        .finding-stats { display: flex; gap: 1.4rem; flex-wrap: wrap; margin: 0.7rem 0; padding: 0.7rem 0.9rem; background: rgba(0,0,0,0.35); border-radius: 8px; font-family: var(--font-mono); font-size: 0.72rem; }
+        .finding-stats .stat b { display: block; font-size: 0.95rem; color: var(--text-primary); }
+        .finding-stats .stat span { color: var(--text-muted); text-transform: uppercase; font-size: 0.58rem; letter-spacing: 0.08em; }
+        .finding-narrative { font-size: 0.86rem; line-height: 1.7; color: var(--text-secondary); }
+        .finding-evidence { margin-top: 0.7rem; font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-muted); white-space: pre-wrap; max-height: 200px; overflow: auto; background: rgba(0,0,0,0.4); padding: 0.8rem; border-radius: 8px; }
+
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+        .data-table th {
+            text-align: left; font-family: var(--font-mono); font-size: 0.62rem;
+            text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-muted);
+            padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border-hairline);
+            position: sticky; top: 0; background: rgba(10, 14, 24, 0.97); cursor: pointer; user-select: none;
+        }
+        .data-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--text-secondary); vertical-align: top; }
+        .data-table tr:hover td { background: rgba(255,255,255,0.025); }
+        .data-table td.mono { font-family: var(--font-mono); font-size: 0.72rem; }
+        .table-scroll { max-height: 560px; overflow: auto; border-radius: var(--radius-sm); border: 1px solid var(--border-hairline); }
+        .empty-state {
+            padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;
+            border: 1px dashed var(--border-hairline); border-radius: var(--radius-sm);
+        }
+        details.raw-details summary { cursor: pointer; color: var(--neon-cyan); font-family: var(--font-mono); font-size: 0.68rem; }
+        details.raw-details pre {
+            margin-top: 0.5rem; font-family: var(--font-mono); font-size: 0.66rem;
+            color: var(--text-secondary); white-space: pre-wrap; word-break: break-all;
+            background: rgba(0,0,0,0.45); padding: 0.8rem; border-radius: 8px;
+            max-height: 340px; overflow: auto;
+        }
+        .badge {
+            display: inline-block; font-family: var(--font-mono); font-size: 0.62rem;
+            padding: 0.14rem 0.55rem; border-radius: 9999px;
+            border: 1px solid var(--border-hairline); color: var(--text-secondary);
+        }
+        .badge.ok { color: var(--neon-green); border-color: rgba(16,185,129,.35); background: rgba(16,185,129,.07); }
+        .badge.fail { color: var(--neon-red); border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.07); }
+        .badge.arch { color: #c77dff; border-color: rgba(157,78,221,.35); background: rgba(157,78,221,.08); }
+        a.dl-link { color: var(--neon-cyan); font-family: var(--font-mono); font-size: 0.7rem; text-decoration: none; }
+        a.dl-link:hover { text-decoration: underline; }
+        .search-results { display: none; }
+        .search-results .hit { padding: 0.7rem 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .search-results .hit-title { font-weight: 600; font-size: 0.85rem; }
+        .search-results .hit-meta { font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-muted); margin-top: 0.2rem; }
+        .search-results .hit-snippet { font-size: 0.76rem; color: var(--text-secondary); margin-top: 0.3rem; line-height: 1.5; }
+        footer {
+            border-top: 1px solid var(--border-hairline); padding: 1.4rem 2rem;
+            text-align: center; color: var(--text-muted); font-size: 0.72rem; line-height: 1.7;
+        }
+        .skeleton { position: relative; overflow: hidden; }
+        .skeleton::after {
+            content: ""; position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+            animation: shimmer 1.4s infinite;
+        }
+        @keyframes shimmer { from { transform: translateX(-100%);} to { transform: translateX(100%);} }
+    </style>
+</head>
+<body>
+<header>
+    <div class="brand-cluster">
+        <div class="brand-monogram">PL</div>
+        <div>
+            <div class="brand-text-title">Police Lattice</div>
+            <div class="brand-text-sub">Search → Gather → Organize → Process → Verify → Synthesize · live external data only</div>
+        </div>
+    </div>
+    <div class="header-controls">
+        <input id="searchInput" class="search-input" type="search" placeholder="Search lattice (semantic + lexical + literal)…" autocomplete="off">
+        <select id="monthSelect" class="month-select" aria-label="Select data month">
+            <option value="">Live · current month</option>
+        </select>
+        <div id="statusPill" class="live-pill"><span class="live-dot"></span><span id="statusText">LIVE</span></div>
+    </div>
+</header>
+
+<main>
+    <div id="summaryStrip" class="summary-strip skeleton">Loading live analytics…</div>
+
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <section class="panel search-results" id="searchPanel">
+        <div class="panel-title">Hybrid retrieval results</div>
+        <div class="panel-sub" id="searchMeta"></div>
+        <div id="searchHits"></div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">Force taxonomy · agency distribution · incident types</div>
+        <div class="panel-sub">
+            Exact pipeline output, zero truncation. Records whose source data does not state a
+            value are counted under explicit “Unclassified / Unattributed” labels — never invented.
+        </div>
+        <div class="charts-grid">
+            <div class="chart-box">
+                <div class="chart-title">Use-of-force taxonomy — <span class="month-label"></span></div>
+                <canvas id="forcePie"></canvas>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Incidents by agency — <span class="month-label"></span></div>
+                <canvas id="agencyPie"></canvas>
+            </div>
+            <div class="chart-box">
+                <div class="chart-title">Incident types — <span class="month-label"></span></div>
+                <canvas id="typePie"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">Monthly timeline — incidents, arrests, deaths (12-month window)</div>
+        <div class="timeline-box"><canvas id="timelineChart"></canvas></div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">Officer anomaly findings — <span class="month-label"></span></div>
+        <div class="panel-sub" id="anomalyMeta">
+            Findings require: count ≥ 3, ≥ 2× agency peer median, and (Benjamini-Hochberg q ≤ 0.05 or robust z ≥ 3.5).
+            Peer groups contain same-agency officers with ≥1 recorded event of the same metric in the same period.
+            Complete per-officer statistics appear in the officer metrics table below — no data omitted.
+        </div>
+        <div id="anomalyFindings"></div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">Officer metrics — complete table (<span class="month-label"></span>)</div>
+        <div class="panel-sub">Every officer in the lattice with exact counts for the selected month. Click a column header to sort.</div>
+        <div class="table-scroll">
+            <table class="data-table" id="officerTable">
+                <thead>
+                    <tr>
+                        <th data-k="label">Officer</th>
+                        <th data-k="badge_number">Badge</th>
+                        <th data-k="employee_id">Employee ID</th>
+                        <th data-k="agency">Agency</th>
+                        <th data-k="incidents_involved" data-n>Incidents involved</th>
+                        <th data-k="use_of_force_events" data-n>Use-of-force events</th>
+                        <th data-k="arrests_linked" data-n>Arrests linked</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">Incidents — full records (<span class="month-label"></span>)</div>
+        <div class="panel-sub">Complete incident rows bound directly to pipeline output; expand any row for the entire raw data payload.</div>
+        <div class="table-scroll">
+            <table class="data-table" id="incidentTable">
+                <thead>
+                    <tr>
+                        <th data-k="incident_number">Incident #</th>
+                        <th data-k="incident_type">Type</th>
+                        <th data-k="occurred_at">Occurred (UTC)</th>
+                        <th data-k="location">Location</th>
+                        <th data-k="agency_name">Agency</th>
+                        <th data-k="subject_name">Subject</th>
+                        <th data-k="force_type">Force type</th>
+                        <th data-k="officers_involved">Officers involved</th>
+                        <th>Raw data</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div style="margin-top:0.8rem; display:flex; gap:0.6rem; align-items:center;">
+            <button id="incidentMore" class="month-select" style="border-radius:10px; cursor:pointer;">Load more incidents</button>
+            <span id="incidentCount" class="panel-sub" style="margin:0;"></span>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">Source provenance — records ingested in <span class="month-label"></span></div>
+        <div class="table-scroll" style="max-height:420px;">
+            <table class="data-table" id="provenanceTable">
+                <thead><tr><th>Source</th><th>Source ID</th><th>Raw records</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">Immutable chron-archive — monthly data log files (stored in the Railway database)</div>
+        <div class="panel-sub">
+            Every month the pipeline persists discrete, SHA-256-addressed, append-only files
+            (raw records · staging + verification · entities · analytics snapshot · anomaly findings).
+            Historical months render with exact parity to the live view via these files.
+        </div>
+        <div class="table-scroll" style="max-height:480px;">
+            <table class="data-table" id="archiveTable">
+                <thead><tr><th>Month</th><th>Kind</th><th>File</th><th>Records</th><th>Size</th><th>SHA-256</th><th>Archived (UTC)</th><th>Download</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<footer>
+    Police Lattice · fully autonomous pipeline · zero mock data · every value above originates from live external
+    public records and is verified before synthesis.<br>
+    Operation sequence enforced: Search → Gather → Organize → Process → Verify → Synthesize.
+</footer>
+
+<script>
+"use strict";
+
+/* ============================================================
+   Client state store — month datasets are fetched AT MOST ONCE
+   and cached; toggling months re-renders from cache (no refetch,
+   no layout shift: containers have fixed heights, charts update
+   in place with animation disabled).
+   ============================================================ */
+const Store = {
+    cache: new Map(),          // monthKey -> analytics payload ("" key = live)
+    months: null,              // /api/months payload
+    incidentsCache: new Map(), // monthKey -> {rows, offset, exhausted}
+    activeMonth: "",
+    charts: {},
+    sortState: {},
+};
+
+const PALETTE = [
+    "#9d4edd","#00f0ff","#00dfd8","#f59e0b","#ef4444","#10b981","#ff007a","#7928ca",
+    "#60a5fa","#f97316","#a3e635","#e879f9","#22d3ee","#fb7185","#34d399","#c084fc",
+    "#facc15","#38bdf8","#fca5a5","#4ade80"
+];
+
+const $ = (id) => document.getElementById(id);
+
+function fmtInt(n) {
+    if (n === null || n === undefined) return "—";
+    return Number(n).toLocaleString("en-US");
+}
+function fmtBytes(b) {
+    if (b === null || b === undefined) return "—";
+    if (b < 1024) return b + " B";
+    if (b < 1024*1024) return (b/1024).toFixed(1) + " KiB";
+    return (b/1024/1024).toFixed(2) + " MiB";
+}
+function esc(s) {
+    if (s === null || s === undefined) return "—";
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+/* ---------------- data access (fetch-once semantics) ---------------- */
+
+async function fetchJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) {
+        let detail = r.statusText;
+        try { detail = (await r.json()).detail || detail; } catch (e) {}
+        throw new Error(detail);
+    }
+    return r.json();
+}
+
+async function getAnalytics(month) {
+    const key = month || "";
+    if (!Store.cache.has(key)) {
+        const url = month ? `/api/analytics?month=${encodeURIComponent(month)}` : "/api/analytics";
+        Store.cache.set(key, await fetchJSON(url));
+    }
+    return Store.cache.get(key);
+}
+
+/* ---------------- chart helpers ---------------- */
+
+function pieColors(n) {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push(PALETTE[i % PALETTE.length]);
+    return out;
+}
+
+function makePie(canvasId) {
+    return new Chart($(canvasId), {
+        type: "pie",
+        data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderColor: "rgba(0,0,0,0.6)", borderWidth: 2 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: { position: "right", labels: { color: "#94a3b8", font: { size: 11, family: "Inter" }, boxWidth: 12, padding: 10 } },
+                tooltip: {
+                    backgroundColor: "rgba(0,0,0,0.9)", borderColor: "rgba(157,78,221,.4)", borderWidth: 1,
+                    callbacks: { label: (ctx) => {
+                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        const pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) + "%" : "0%";
+                        return ` ${ctx.label}: ${ctx.parsed} (${pct})`;
+                    }}
+                }
+            }
+        }
+    });
+}
+
+function updatePie(chart, labels, counts) {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = counts;
+    chart.data.datasets[0].backgroundColor = pieColors(labels.length);
+    chart.update("none"); // no animation -> no layout shift
+}
+
+function makeTimeline() {
+    return new Chart($("timelineChart"), {
+        type: "bar",
+        data: {
+            labels: [],
+            datasets: [
+                { label: "Incidents", data: [], backgroundColor: "rgba(157,78,221,0.75)", borderRadius: 4 },
+                { label: "Arrests", data: [], backgroundColor: "rgba(0,240,255,0.6)", borderRadius: 4 },
+                { label: "Deaths", data: [], type: "line", borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,0.15)", fill: true, tension: 0.35, pointRadius: 3 },
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { labels: { color: "#94a3b8" } } },
+            scales: {
+                x: { ticks: { color: "#64748b", font: { family: "JetBrains Mono", size: 10 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+                y: { beginAtZero: true, ticks: { color: "#64748b", precision: 0 }, grid: { color: "rgba(255,255,255,0.05)" } }
+            }
+        }
+    });
+}
+
+/* ---------------- renderers ---------------- */
+
+function renderSummary(payload) {
+    const s = payload.summary || {};
+    const isArchived = payload.mode === "archived";
+    const tag = isArchived
+        ? `<span class="mode-tag archived">ARCHIVED ${esc(payload.archive ? payload.archive.sha256.slice(0,12) : "")}</span>`
+        : `<span class="mode-tag">LIVE</span>`;
+    const summaryText = payload.plain_language_summary ||
+        `${esc(payload.month)}: ${fmtInt(s.incidents)} incidents, ${fmtInt(s.officers)} officers, ${fmtInt(s.arrests)} arrests, ${fmtInt(s.anomaly_findings)} anomaly findings.`;
+    $("summaryStrip").innerHTML = tag + esc(summaryText).replace(/(\d[\d,]*)/g, "<strong>$1</strong>");
+    $("summaryStrip").classList.remove("skeleton");
+    const pill = $("statusPill");
+    pill.classList.toggle("arch-pill", isArchived);
+    $("statusText").textContent = isArchived ? `ARCHIVE ${payload.month}` : "LIVE";
+}
+
+function renderKPIs(payload) {
+    const s = payload.summary || {};
+    const kpis = [
+        ["Incidents", fmtInt(s.incidents), "this month"],
+        ["Officers", fmtInt(s.officers), "in lattice"],
+        ["Arrests", fmtInt(s.arrests), "this month"],
+        ["Charges", fmtInt(s.charges), "in lattice"],
+        ["News articles", fmtInt(s.news_articles), "this month"],
+        ["Raw records", fmtInt(s.raw_records_ingested), "ingested this month"],
+        ["Staged records", fmtInt(s.staging_records), "this month"],
+        ["Verified passed", fmtInt(s.verified_passed), "all checks"],
+        ["Verify failures", fmtInt(s.verified_failed), "excluded from synthesis"],
+        ["Force incidents", fmtInt(s.force_incidents), "this month"],
+        ["Anomaly findings", fmtInt(s.anomaly_findings), "this month"],
+        ["Relational links", fmtInt(s.relational_links), "in lattice"],
+    ];
+    $("kpiGrid").innerHTML = kpis.map(([label, value, sub]) => `
+        <div class="glass-kpi"><div class="kpi-label">${label}</div>
+        <div class="kpi-value">${value}</div><div class="kpi-sub">${sub}</div></div>`).join("");
+}
+
+function renderMonthLabels(month) {
+    document.querySelectorAll(".month-label").forEach(el => el.textContent = month);
+}
+
+function renderCharts(payload) {
+    updatePie(Store.charts.force, payload.force_taxonomy.labels, payload.force_taxonomy.counts);
+    updatePie(Store.charts.agency, payload.agency_distribution.labels, payload.agency_distribution.incidents);
+    updatePie(Store.charts.type, payload.incident_types.labels, payload.incident_types.counts);
+    const t = payload.timeline;
+    Store.charts.timeline.data.labels = t.labels;
+    Store.charts.timeline.data.datasets[0].data = t.incidents;
+    Store.charts.timeline.data.datasets[1].data = t.arrests;
+    Store.charts.timeline.data.datasets[2].data = t.deaths;
+    Store.charts.timeline.update("none");
+}
+
+function renderAnomalies(payload) {
+    const findings = payload.anomaly_findings || [];
+    const host = $("anomalyFindings");
+    if (!findings.length) {
+        host.innerHTML = `<div class="empty-state">No officer anomaly findings recorded for ${esc(payload.month)}.
+        Every officer's exact counts remain available in the officer metrics table below — no data omitted.</div>`;
+        return;
+    }
+    host.innerHTML = findings.map(f => `
+        <div class="finding-card">
+            <div class="finding-head">
+                <span class="finding-name">${esc(f.officer_label)}</span>
+                <span class="finding-metric">${esc(f.metric.replace(/_/g," "))}</span>
+                ${f.agency_name ? `<span class="badge">${esc(f.agency_name)}</span>` : ""}
+                ${f.badge_number ? `<span class="badge">badge ${esc(f.badge_number)}</span>` : ""}
+            </div>
+            <div class="finding-stats">
+                <div class="stat"><b>${fmtInt(f.metric_value)}</b><span>officer count</span></div>
+                <div class="stat"><b>${f.peer_median}</b><span>peer median</span></div>
+                <div class="stat"><b>${f.peer_mean != null ? Number(f.peer_mean).toFixed(2) : "—"}</b><span>peer mean</span></div>
+                <div class="stat"><b>${fmtInt(f.peer_max)}</b><span>peer max</span></div>
+                <div class="stat"><b>${f.ratio_to_median != null ? f.ratio_to_median.toFixed(2) + "×" : "—"}</b><span>vs median</span></div>
+                <div class="stat"><b>${f.robust_z != null ? f.robust_z.toFixed(2) : "n/c"}</b><span>robust z</span></div>
+                <div class="stat"><b>${f.poisson_p != null ? f.poisson_p.toExponential(2) : "—"}</b><span>Poisson p</span></div>
+                <div class="stat"><b>${f.bh_q != null ? f.bh_q.toExponential(2) : "—"}</b><span>BH q</span></div>
+            </div>
+            <div class="finding-narrative">${esc(f.narrative)}</div>
+            ${f.evidence && f.evidence.length ? `<details class="raw-details"><summary>${f.evidence.length} source record(s) — full evidence</summary><pre>${esc(JSON.stringify(f.evidence, null, 2))}</pre></details>` : ""}
+        </div>`).join("");
+}
+
+function renderOfficerTable(rows) {
+    const tbody = $("officerTable").querySelector("tbody");
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">No officers in the lattice yet.</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = rows.map(r => `
+        <tr>
+            <td>${esc(r.label)}</td>
+            <td class="mono">${esc(r.badge_number ?? "—")}</td>
+            <td class="mono">${esc(r.employee_id ?? "—")}</td>
+            <td>${esc(r.agency)}</td>
+            <td class="mono">${fmtInt(r.incidents_involved)}</td>
+            <td class="mono">${fmtInt(r.use_of_force_events)}</td>
+            <td class="mono">${fmtInt(r.arrests_linked)}</td>
+        </tr>`).join("");
+    attachHeaderSort("officerTable", rows, renderOfficerTable);
+}
+
+function attachHeaderSort(tableId, rows, renderFn) {
+    const state = Store.sortState[tableId] || {};
+    $(tableId).querySelectorAll("th[data-k]").forEach(th => {
+        th.onclick = () => {
+            const key = th.dataset.k;
+            const dir = state.key === key ? -(state.dir || 1) : 1;
+            state.key = key; state.dir = dir;
+            Store.sortState[tableId] = state;
+            rows.sort((a, b) => {
+                let va = a[key], vb = b[key];
+                if (key === "officers_involved") { va = va.length; vb = vb.length; }
+                if (th.hasAttribute("data-n")) {
+                    va = Number(va) || 0; vb = Number(vb) || 0;
+                    return (va - vb) * dir;
+                }
+                return String(va ?? "").toLowerCase().localeCompare(String(vb ?? "").toLowerCase()) * dir;
+            });
+            renderFn(rows);
+        };
+    });
+}
+
+/* ---------------- incidents (paged, complete) ---------------- */
+
+async function loadIncidents(month, append) {
+    const key = month || "";
+    if (!Store.incidentsCache.has(key)) Store.incidentsCache.set(key, { rows: [], offset: 0, done: false });
+    const st = Store.incidentsCache.get(key);
+    if (st.done && !append) { renderIncidents(st.rows); return; }
+    if (append && st.done) return;
+    const url = `/incidents?limit=100&offset=${st.offset}`;
+    const batch = await fetchJSON(url);
+    st.rows = st.rows.concat(batch);
+    st.offset += batch.length;
+    if (batch.length < 100) st.done = true;
+    renderIncidents(st.rows);
+}
+
+function renderIncidents(rows) {
+    const tbody = $("incidentTable").querySelector("tbody");
+    $("incidentCount").textContent = `${rows.length} loaded`;
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">No incidents synthesized yet. Records appear here only after live sources are ingested and verified.</div></td></tr>`;
+        return;
+    }
+    tbody.innerHTML = rows.map(r => `
+        <tr>
+            <td class="mono">${esc(r.incident_number ?? "no number recorded")}</td>
+            <td>${esc(r.incident_type ?? "—")}</td>
+            <td class="mono">${esc(r.occurred_at ?? "—")}</td>
+            <td>${esc(r.location ?? "not recorded")}</td>
+            <td>${esc(r.agency_name)}</td>
+            <td>${esc(r.subject_name)}</td>
+            <td>${esc(r.force_type ?? "—")}</td>
+            <td>${r.officers_involved.length
+                ? r.officers_involved.map(o => esc(o.name || `#${o.badge_number}`)).join(", ")
+                : "none recorded"}</td>
+            <td><details class="raw-details"><summary>data</summary><pre>${esc(JSON.stringify(r.data ?? {}, null, 2))}</pre></details></td>
+        </tr>`).join("");
+    attachHeaderSort("incidentTable", rows, renderIncidents);
+}
+
+/* ---------------- provenance + archive ---------------- */
+
+function renderProvenance(payload) {
+    const rows = payload.source_provenance || [];
+    const tbody = $("provenanceTable").querySelector("tbody");
+    if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state">No raw records ingested for ${esc(payload.month)}.</div></td></tr>`;
+        return;
+    }
+    tbody.innerHTML = rows.map(r => `
+        <tr><td>${esc(r.source_name)}</td><td class="mono">${esc(r.source_id)}</td><td class="mono">${fmtInt(r.raw_records)}</td></tr>`).join("");
+}
+
+async function renderArchive() {
+    try {
+        const data = await fetchJSON("/api/archive/files");
+        const tbody = $("archiveTable").querySelector("tbody");
+        if (!data.files.length) {
+            tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">No archive files written yet. The monthly refresh protocol runs on the 1st of each month; trigger manually via POST /archive/refresh.</div></td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.files.map(f => `
+            <tr>
+                <td class="mono">${esc(f.month_key)}</td>
+                <td><span class="badge arch">${esc(f.kind)}</span></td>
+                <td class="mono">${esc(f.filename)}</td>
+                <td class="mono">${fmtInt(f.record_count)}</td>
+                <td class="mono">${fmtBytes(f.size_bytes)}</td>
+                <td class="mono" title="${esc(f.sha256)}">${esc(f.sha256.slice(0,16))}…</td>
+                <td class="mono">${esc(f.created_at)}</td>
+                <td><a class="dl-link" href="${f.download_url}" download>download</a></td>
+            </tr>`).join("");
+    } catch (e) {
+        $("archiveTable").querySelector("tbody").innerHTML =
+            `<tr><td colspan="8" class="empty-state">${esc(e.message)}</td></tr>`;
+    }
+}
+
+/* ---------------- month switching ---------------- */
+
+async function selectMonth(month) {
+    Store.activeMonth = month;
+    let payload;
+    try {
+        payload = await getAnalytics(month);
+    } catch (e) {
+        $("summaryStrip").innerHTML = `Cannot load month <b>${esc(month || "live")}</b>: ${esc(e.message)}`;
+        $("summaryStrip").classList.remove("skeleton");
+        return;
+    }
+    renderMonthLabels(payload.month + (payload.mode === "archived" ? " (archived)" : " (live)"));
+    renderSummary(payload);
+    renderKPIs(payload);
+    renderCharts(payload);
+    renderAnomalies(payload);
+    renderOfficerTable(payload.officer_metrics || []);
+    renderProvenance(payload);
+    await loadIncidents(month, false);
+}
+
+async function initMonths() {
+    try {
+        Store.months = await fetchJSON("/api/months");
+    } catch (e) {
+        Store.months = { active_month: new Date().toISOString().slice(0,7), archived_months: [] };
+    }
+    const sel = $("monthSelect");
+    sel.innerHTML = `<option value="">Live · ${esc(Store.months.active_month)}</option>`;
+    for (const m of Store.months.archived_months) {
+        const o = document.createElement("option");
+        o.value = m.month;
+        o.textContent = `${m.month} · archived (${Object.keys(m.kinds).length} files, ${fmtBytes(m.total_bytes)})`;
+        sel.appendChild(o);
+    }
+    sel.onchange = () => selectMonth(sel.value);
+}
+
+/* ---------------- search ---------------- */
+
+let searchTimer = null;
+$("searchInput").addEventListener("input", (ev) => {
+    const q = ev.target.value.trim();
+    clearTimeout(searchTimer);
+    if (q.length < 2) { $("searchPanel").style.display = "none"; return; }
+    searchTimer = setTimeout(async () => {
+        try {
+            const res = await fetchJSON(`/api/search?q=${encodeURIComponent(q)}&limit=25`);
+            $("searchPanel").style.display = "block";
+            $("searchMeta").textContent =
+                `mode: ${res.mode} · corpus: ${res.corpus_size} documents · semantic backend: ${res.semantic_backend} · index v${res.index_version}`;
+            const hits = res.results || [];
+            $("searchHits").innerHTML = hits.length
+                ? hits.map(h => `
+                    <div class="hit">
+                        <div class="hit-title">${esc(h.title)}</div>
+                        <div class="hit-meta">${esc(h.entity_type)} #${h.entity_id} · RRF ${h.rrf_score} ·
+                            ${Object.entries(h.components).map(([k,v]) => `${k}: rank ${v.rank}`).join(" · ") || "no component ranks"}</div>
+                        <div class="hit-snippet">${esc(h.snippet)}</div>
+                    </div>`).join("")
+                : `<div class="empty-state">No matches for “${esc(q)}”.</div>`;
+        } catch (e) {
+            $("searchPanel").style.display = "block";
+            $("searchMeta").textContent = `search failed: ${e.message}`;
+            $("searchHits").innerHTML = "";
+        }
+    }, 250);
+});
+
+$("incidentMore").addEventListener("click", () => loadIncidents(Store.activeMonth, true));
+
+/* ---------------- boot ---------------- */
+
+(async function boot() {
+    Store.charts.force = makePie("forcePie");
+    Store.charts.agency = makePie("agencyPie");
+    Store.charts.type = makePie("typePie");
+    Store.charts.timeline = makeTimeline();
+    await initMonths();
+    await selectMonth("");
+    await renderArchive();
+})();
+</script>
+</body>
+</html>
